@@ -12,3 +12,7 @@ frontend/dist/
 
 # Upload file
 uploads/*
+
+# Exclude all markdown documentation files except README.md
+*.md
+!README.md
