@@ -17,20 +17,20 @@ export const statusOptions = [
   'Kembali ke Kelas', 'Istirahat di UKS', 'Dijemput Wali', 'Dirujuk ke Klinik'
 ]
 
-// Hapus kelas A dan B. Cukup tingkat kelas 1 - 6
+// Tingkat Kelas 1 - 6
 export const kelasOptions = ['1', '2', '3', '4', '5', '6']
 
-// Data Siswa & Kunjungan Kosong (Fresh App State)
+// Data Siswa & Kunjungan Kosong (Fresh App State untuk Aplikasi Baru)
 export const siswaList = []
 
 export const kunjunganList = []
 
 export const petugasUks = {
   nama_lengkap: 'Ibu Siti Rahmawati',
-  email: 'siti.rahmawati@sdn05parambahan.sch.id',
+  email: 'siti.rahmawati@sdn05parambahan.id',
   nip: '198507152010012003',
   no_telepon: '081234567890',
-  role: 'petugas'
+  role: 'Petugas UKS Utama'
 }
 
 export const dataSekolah = {

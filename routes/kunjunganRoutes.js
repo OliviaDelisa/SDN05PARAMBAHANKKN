@@ -1,10 +1,10 @@
 import { Router } from 'express'
-import { kunjunganController } from '../controllers/kunjunganController.js'
+import { getKunjungan, createKunjungan, deleteKunjungan } from '../controllers/kunjunganController.js'
 
 const router = Router()
 
-router.get('/', kunjunganController.getAll)
-router.post('/', kunjunganController.create)
-router.get('/stats/dashboard', kunjunganController.getStatsDashboard)
+router.get('/', getKunjungan)
+router.post('/', createKunjungan)
+router.delete('/:id', deleteKunjungan)
 
 export default router

@@ -1,53 +1,76 @@
 import pool from '../db/db.js'
-import { petugasUks, dataSekolah } from '../frontend/src/data/mockData.js'
 
 export const pengaturanController = {
+  // GET /api/pengaturan — ambil profil user yang login + data sekolah
   get: async (req, res) => {
     try {
-      const [userRows] = await pool.query('SELECT nama_lengkap, email, nip, no_telepon FROM users LIMIT 1')
-      const [sekolahRows] = await pool.query('SELECT * FROM pengaturan_sekolah LIMIT 1')
+      const userId = req.headers['x-user-id']
+      const sekolahRes = await pool.query('SELECT * FROM pengaturan_sekolah LIMIT 1')
+      const sekolah = sekolahRes[0][0] || {}
 
-      res.json({
-        success: true,
-        data: {
-          petugas: userRows[0] || petugasUks,
-          sekolah: sekolahRows[0] || dataSekolah
-        }
-      })
+      let petugas = {}
+      if (userId) {
+        const [rows] = await pool.query(
+          'SELECT id, nama_lengkap, username, nip, no_telepon, role FROM users WHERE id = ?',
+          [userId]
+        )
+        petugas = rows[0] || {}
+      } else {
+        // Fallback: ambil user pertama
+        const [rows] = await pool.query(
+          'SELECT id, nama_lengkap, username, nip, no_telepon, role FROM users LIMIT 1'
+        )
+        petugas = rows[0] || {}
+      }
+
+      res.json({ success: true, data: { petugas, sekolah } })
     } catch (err) {
-      res.json({
-        success: true,
-        data: {
-          petugas: petugasUks,
-          sekolah: dataSekolah
-        }
-      })
+      res.status(500).json({ success: false, message: err.message })
     }
   },
 
+  // PUT /api/pengaturan/petugas — update profil user yang login
   updatePetugas: async (req, res) => {
     try {
-      const { nama_lengkap, email, nip, no_telepon } = req.body
+      const userId = req.headers['x-user-id']
+      const { nama_lengkap, username, nip, no_telepon } = req.body
+
+      if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID tidak ditemukan!' })
+      }
+
       await pool.query(
-        'UPDATE users SET nama_lengkap=?, email=?, nip=?, no_telepon=? WHERE id=1',
-        [nama_lengkap, email, nip, no_telepon]
+        'UPDATE users SET nama_lengkap = ?, username = ?, nip = ?, no_telepon = ? WHERE id = ?',
+        [nama_lengkap, username ? username.toLowerCase() : null, nip, no_telepon, userId]
       )
-      res.json({ success: true, message: 'Profil petugas UKS berhasil diperbarui!' })
+
+      // Kembalikan data terbaru
+      const [rows] = await pool.query(
+        'SELECT id, nama_lengkap, username, nip, no_telepon, role FROM users WHERE id = ?',
+        [userId]
+      )
+
+      res.json({
+        success: true,
+        message: 'Profil petugas UKS berhasil diperbarui!',
+        data: rows[0] || {}
+      })
     } catch (err) {
-      res.json({ success: true, message: 'Profil petugas UKS berhasil diperbarui (Mode Demo)' })
+      res.status(500).json({ success: false, message: err.message })
     }
   },
 
+  // PUT /api/pengaturan/sekolah — update data sekolah
   updateSekolah: async (req, res) => {
     try {
       const { nama_sekolah, npsn, telepon_sekolah, kepala_sekolah, alamat } = req.body
       await pool.query(
-        'UPDATE pengaturan_sekolah SET nama_sekolah=?, npsn=?, telepon_sekolah=?, kepala_sekolah=?, alamat=? WHERE id=1',
+        'UPDATE pengaturan_sekolah SET nama_sekolah = ?, npsn = ?, telepon_sekolah = ?, kepala_sekolah = ?, alamat = ? WHERE id = 1',
         [nama_sekolah, npsn, telepon_sekolah, kepala_sekolah, alamat]
       )
       res.json({ success: true, message: 'Data sekolah berhasil diperbarui!' })
     } catch (err) {
-      res.json({ success: true, message: 'Data sekolah berhasil diperbarui (Mode Demo)' })
+      res.status(500).json({ success: false, message: err.message })
     }
   }
 }

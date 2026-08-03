@@ -14,11 +14,13 @@ import TagSelector from '../components/common/TagSelector'
 import DatePicker from '../components/common/DatePicker'
 import CustomSelect from '../components/common/CustomSelect'
 import { useToast } from '../components/common/Toast'
-import { siswaList, keluhanOptions, tindakanOptions, statusOptions } from '../data/mockData'
+import { useData } from '../context/DataContext'
+import { keluhanOptions, tindakanOptions, statusOptions } from '../data/mockData'
 import { getInitials, getInitialColor } from '../utils/formatters'
 
 export default function PendaftaranKunjungan() {
   const toast = useToast()
+  const { siswaList, addKunjungan } = useData()
 
   // Form State
   const [selectedSiswa, setSelectedSiswa] = useState(null)
@@ -36,7 +38,7 @@ export default function PendaftaranKunjungan() {
   // Success State
   const [successData, setSuccessData] = useState(null)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
     if (!selectedSiswa) {
@@ -63,6 +65,7 @@ export default function PendaftaranKunjungan() {
       status
     }
 
+    await addKunjungan(newRecord)
     setSuccessData(newRecord)
     toast.success(`Kunjungan ${selectedSiswa.nama} berhasil disimpan!`)
   }

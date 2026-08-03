@@ -1,18 +1,21 @@
 import { createContext, useContext, useState } from 'react'
+import { api } from '../utils/api'
 
 const AuthContext = createContext(null)
 
-const DEFAULT_USER = {
-  id: 1,
-  nama_lengkap: 'Ibu Siti Rahmawati',
-  email: 'siti.rahmawati@sdn05parambahan.id',
-  nip: '198507152010012003',
-  role: 'Petugas UKS Utama'
+// Aturan username: huruf kecil, angka, underscore, min 4, max 20, tidak boleh dimulai angka
+export function validateUsername(username) {
+  if (!username) return 'Username wajib diisi!'
+  if (username.length < 4) return 'Username minimal 4 karakter!'
+  if (username.length > 20) return 'Username maksimal 20 karakter!'
+  if (/^[0-9]/.test(username)) return 'Username tidak boleh dimulai dengan angka!'
+  if (!/^[a-z0-9_]+$/.test(username)) return 'Username hanya boleh berisi huruf kecil, angka, dan underscore (_)!'
+  return null
 }
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('uks_user')
+    const saved = sessionStorage.getItem('uks_user')
     if (saved) {
       try {
         return JSON.parse(saved)
@@ -23,57 +26,59 @@ export function AuthProvider({ children }) {
     return null
   })
 
-  const login = (nipOrEmail, password) => {
-    if (!nipOrEmail || !password) {
-      throw new Error('NIP / NIS dan Password wajib diisi!')
-    }
-
-    const loggedUser = {
-      ...DEFAULT_USER,
-      nip: nipOrEmail.includes('@') ? DEFAULT_USER.nip : nipOrEmail,
-      email: nipOrEmail.includes('@') ? nipOrEmail : DEFAULT_USER.email
-    }
-
-    setUser(loggedUser)
-    localStorage.setItem('uks_user', JSON.stringify(loggedUser))
-    return loggedUser
+  const updateUser = (userData) => {
+    setUser((prev) => {
+      const updated = { ...prev, ...userData }
+      sessionStorage.setItem('uks_user', JSON.stringify(updated))
+      return updated
+    })
   }
 
-  const register = (userData) => {
-    const { nama_lengkap, nip, email, no_telepon, password } = userData
+  const login = async (username, password) => {
+    if (!username || !password) {
+      throw new Error('Username dan Password wajib diisi!')
+    }
 
-    if (!nama_lengkap || !nip || !email || !password) {
+    const res = await api.post('/auth/login', { username, password })
+
+    if (res && res.success && res.data) {
+      setUser(res.data)
+      sessionStorage.setItem('uks_user', JSON.stringify(res.data))
+      return res.data
+    } else {
+      throw new Error(res.message || 'Username/NIP atau Password yang Anda masukkan salah!')
+    }
+  }
+
+  const register = async (userData) => {
+    const { nama_lengkap, nip, username, no_telepon, password } = userData
+
+    if (!nama_lengkap || !nip || !username || !password) {
       throw new Error('Semua kolom wajib diisi!')
     }
 
-    // Validasi domain email sekolah wajib @sdn05parambahan.id
-    if (!email.toLowerCase().endsWith('@sdn05parambahan.id')) {
-      throw new Error('Email harus menggunakan domain resmi sekolah (@sdn05parambahan.id)!')
+    const usernameError = validateUsername(username)
+    if (usernameError) throw new Error(usernameError)
+
+    const res = await api.post('/auth/register', userData)
+
+    if (res && res.success && res.data) {
+      setUser(res.data)
+      sessionStorage.setItem('uks_user', JSON.stringify(res.data))
+      return res.data
+    } else {
+      throw new Error(res.message || 'Pendaftaran akun gagal!')
     }
-
-    const isDokterKecil = nip.length <= 10
-
-    const newUser = {
-      id: Date.now(),
-      nama_lengkap,
-      nip,
-      email,
-      no_telepon: no_telepon || '081234567890',
-      role: isDokterKecil ? 'Dokter Kecil UKS' : 'Petugas UKS Pegawai'
-    }
-
-    setUser(newUser)
-    localStorage.setItem('uks_user', JSON.stringify(newUser))
-    return newUser
   }
 
   const logout = () => {
     setUser(null)
+    sessionStorage.removeItem('uks_user')
     localStorage.removeItem('uks_user')
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, updateUser, login, register, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   )

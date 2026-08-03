@@ -1,54 +1,80 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Users,
-  BedDouble,
   AlertTriangle,
-  ClipboardPlus,
-  ArrowRight,
-  TrendingUp,
-  UserCheck,
+  CheckCircle2,
+  Clock,
+  UserPlus,
+  PlusCircle,
+  FileText,
+  Activity,
+  Calendar,
+  ChevronRight,
   Sparkles,
-  Inbox
+  Inbox,
+  BarChart2,
+  HeartPulse
 } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import {
+  BarChart,
+  Bar,
+  Cell,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts'
 import PageHeader from '../components/layout/PageHeader'
 import StatCard from '../components/common/StatCard'
 import Badge from '../components/common/Badge'
-import { kunjunganList, siswaList } from '../data/mockData'
+import Modal from '../components/common/Modal'
 import { getGreeting, formatWaktu, getInitials, getInitialColor } from '../utils/formatters'
 import { useAuth } from '../context/AuthContext'
+import { useData } from '../context/DataContext'
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const { siswaList = [], kunjunganList = [] } = useData()
+
+  // Selected visit for quick detail modal
+  const [selectedVisit, setSelectedVisit] = useState(null)
+
   const greeting = getGreeting()
+  const namaPetugas = user?.nama_lengkap || 'Petugas UKS'
 
-  // Calculate dashboard stats
-  const totalToday = kunjunganList.filter((k) => {
-    const todayStr = new Date().toISOString().split('T')[0]
-    return k.waktu_masuk?.startsWith(todayStr)
-  }).length
+  // Metric computations
+  const totalSiswa = siswaList ? siswaList.length : 0
+  const totalKunjungan = kunjunganList ? kunjunganList.length : 0
+  const totalDarurat = kunjunganList ? kunjunganList.filter((k) => k.is_darurat).length : 0
+  const totalKembali = kunjunganList ? kunjunganList.filter((k) => k.status === 'Kembali ke Kelas').length : 0
 
-  const totalIstirahat = kunjunganList.filter((k) => k.status === 'Istirahat di UKS').length
-  const totalDarurat = kunjunganList.filter((k) => k.is_darurat).length
-  const totalSiswa = siswaList.length
+  const recentVisits = kunjunganList ? kunjunganList.slice(0, 5) : []
 
-  // Top 5 Keluhan data for chart
-  const keluhanCount = {}
-  kunjunganList.forEach((k) => {
-    if (k.keluhan_utama) {
-      keluhanCount[k.keluhan_utama] = (keluhanCount[k.keluhan_utama] || 0) + 1
-    }
-  })
+  // Top 5 Keluhan Bulan Ini Computation
+  const keluhanMap = {}
+  if (kunjunganList && kunjunganList.length > 0) {
+    kunjunganList.forEach((k) => {
+      if (k.keluhan_utama) {
+        const parts = k.keluhan_utama.split(',').map((p) => p.trim())
+        parts.forEach((keluhan) => {
+          if (keluhan) {
+            keluhanMap[keluhan] = (keluhanMap[keluhan] || 0) + 1
+          }
+        })
+      }
+    })
+  }
 
-  const chartData = Object.entries(keluhanCount)
-    .map(([name, total]) => ({ name, total }))
+  const top5KeluhanData = Object.entries(keluhanMap)
+    .map(([name, count]) => ({ name, total: count }))
     .sort((a, b) => b.total - a.total)
     .slice(0, 5)
 
-  const BAR_COLORS = ['#10B981', '#0EA5E9', '#F59E0B', '#8B5CF6', '#EC4899']
+  const hasKeluhanData = top5KeluhanData.length > 0
 
-  // Latest 5 visits
-  const recentVisits = [...kunjunganList].slice(0, 5)
+  // Palette 5 warna berbeda untuk setiap batang chart
+  const BAR_COLORS = ['#10B981', '#0EA5E9', '#F59E0B', '#F43F5E', '#8B5CF6']
 
   const getStatusVariant = (status) => {
     switch (status) {
@@ -62,221 +88,329 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Dashboard Utama">
-        <Link
-          to="/pendaftaran"
-          className="
-            inline-flex items-center gap-2 px-5 py-3 rounded-xl
-            bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400
-            text-white font-extrabold text-xs tracking-wide uppercase
-            shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/80 transition-all duration-200 no-underline cursor-pointer
-            border border-emerald-400/30
-          "
-        >
-          <ClipboardPlus className="w-4 h-4" />
-          <span>Kunjungan Baru</span>
-        </Link>
-      </PageHeader>
-
-      {/* Hero Greeting Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800 p-8 shadow-2xl">
-        <div className="absolute -top-24 -right-24 w-80 h-80 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="max-w-2xl space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-xs font-bold border border-emerald-500/30">
+      {/* Header Banner */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-slate-900 to-[#0F223D] border border-slate-800 p-6 sm:p-8 shadow-2xl">
+        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-xs font-extrabold border border-emerald-500/30">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Sistem UKS Digital SDN 05 Parambahan</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-display text-white leading-tight tracking-tight">
-              {greeting}, {user?.nama_lengkap || 'Petugas UKS'} 👋
-            </h2>
-            <p className="text-slate-300 text-sm leading-relaxed max-w-xl">
-              Sistem telah siap digunakan. Mulai daftarkan data siswa dan catat kunjungan sakit pertama hari ini.
+              SDN 05 Parambahan · UKS Digital
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-extrabold font-display text-white tracking-tight">
+              {greeting}, <span className="text-emerald-400">{namaPetugas}</span>!
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
+              Selamat bertugas hari ini. Kelola rekam medis dan data kunjungan siswa UKS dengan cepat dan akurat.
             </p>
           </div>
 
-          <div className="shrink-0 flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
             <Link
               to="/pendaftaran"
               className="
-                px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400
-                text-white font-extrabold text-sm shadow-xl shadow-emerald-950/50 transition-all duration-200
-                flex items-center gap-2.5 no-underline border border-emerald-400/30 cursor-pointer
+                inline-flex items-center gap-2 px-5 py-3 rounded-xl
+                bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400
+                text-white font-extrabold text-xs uppercase tracking-wide
+                shadow-lg shadow-emerald-950/50 transition-all duration-200 cursor-pointer border border-emerald-400/30
               "
             >
-              <span>+ Catat Siswa Sakit</span>
-              <ArrowRight className="w-4 h-4" />
+              <PlusCircle className="w-4 h-4" />
+              <span>Tambah Kunjungan</span>
+            </Link>
+            <Link
+              to="/siswa"
+              className="
+                inline-flex items-center gap-2 px-5 py-3 rounded-xl
+                bg-slate-800 hover:bg-slate-700 text-slate-200
+                font-bold text-xs transition-all duration-200 shadow-md border border-slate-700
+              "
+            >
+              <UserPlus className="w-4 h-4 text-emerald-400" />
+              <span>Tambah Siswa</span>
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Stat Cards Grid */}
+      {/* 4 Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
           icon={Users}
-          value={totalToday}
+          value={totalSiswa}
           unit="siswa"
-          label="Kunjungan Hari Ini"
+          label="Total Siswa Terdaftar"
           variant="default"
         />
         <StatCard
-          icon={BedDouble}
-          value={totalIstirahat}
-          unit="siswa"
-          label="Sedang Istirahat di UKS"
-          variant="alert"
+          icon={Activity}
+          value={totalKunjungan}
+          unit="kunjungan"
+          label="Total Rekam Kunjungan"
+          variant="info"
         />
         <StatCard
           icon={AlertTriangle}
           value={totalDarurat}
           unit="kasus"
-          label="Kasus Darurat Bulan Ini"
+          label="Kasus Darurat"
           variant="warning"
-          badge={totalDarurat > 0 ? 'Perhatian' : undefined}
         />
         <StatCard
-          icon={UserCheck}
-          value={totalSiswa}
+          icon={CheckCircle2}
+          value={totalKembali}
           unit="siswa"
-          label="Total Siswa Terdaftar"
-          variant="info"
+          label="Kembali ke Kelas"
+          variant="success"
         />
       </div>
 
-      {/* Main Content Split */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Chart Column (7 cols) */}
-        <div className="lg:col-span-7 rounded-2xl bg-slate-900/70 border border-slate-800 p-6 space-y-6 shadow-xl backdrop-blur-md">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-            <div>
-              <h3 className="text-base font-bold font-display text-white">
-                5 Keluhan Terbanyak Bulan Ini
-              </h3>
-              <p className="text-xs text-slate-400">Statistik tren penyakit/keluhan teratas siswa</p>
-            </div>
-            <span className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20 flex items-center gap-1.5">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>Grafik</span>
-            </span>
-          </div>
-
-          <div className="h-[280px] w-full pt-2 flex items-center justify-center">
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                    contentStyle={{
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
-                      borderRadius: '12px',
-                      color: '#fff',
-                      fontSize: '12px'
-                    }}
-                    formatter={(val) => [`${val} siswa`, 'Jumlah']}
-                  />
-                  <Bar dataKey="total" radius={[8, 8, 0, 0]}>
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={BAR_COLORS[index % BAR_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="text-center text-slate-500 space-y-2">
-                <Inbox className="w-10 h-10 mx-auto opacity-30 text-emerald-400" />
-                <p className="text-xs">Belum ada data keluhan tercatat bulan ini</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Activity Column (5 cols) */}
-        <div className="lg:col-span-5 rounded-2xl bg-slate-900/70 border border-slate-800 p-6 space-y-5 shadow-xl backdrop-blur-md flex flex-col justify-between">
-          <div className="space-y-4">
+      {/* Main Grid: Chart 5 Keluhan Terbanyak & Activity Feed & Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Area (8 cols): Chart + Recent Visits */}
+        <div className="lg:col-span-8 space-y-8">
+          {/* CHART: 5 Keluhan Terbanyak Bulan Ini */}
+          <div className="rounded-3xl bg-slate-900/80 border border-slate-800 p-6 sm:p-7 space-y-5 shadow-2xl backdrop-blur-xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-base font-bold font-display text-white">
-                Aktivitas Terkini
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
+                  <BarChart2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold font-display text-white">
+                    Chart 5 Keluhan Terbanyak Bulan Ini
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Statistik peringkat keluhan kesehatan siswa yang paling sering tercatat
+                  </p>
+                </div>
+              </div>
+              <span className="text-[11px] font-extrabold px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                {new Date().toLocaleString('id-ID', { month: 'long', year: 'numeric' })}
+              </span>
+            </div>
+
+            {/* Chart Graphic Render dengan Warna Beda-Beda */}
+            <div className="min-h-[220px] w-full flex items-center justify-center">
+              {hasKeluhanData ? (
+                <div className="w-full h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart layout="vertical" data={top5KeluhanData} margin={{ top: 5, right: 30, left: 30, bottom: 5 }}>
+                      <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                      <YAxis dataKey="name" type="category" tick={{ fontSize: 12, fill: '#F8FAFC', fontWeight: 700 }} axisLine={false} tickLine={false} width={120} />
+                      <Tooltip
+                        cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                        formatter={(val) => [`${val} siswa`, 'Jumlah']}
+                        contentStyle={{ backgroundColor: '#0F172A', border: '1px solid #334155', borderRadius: '12px', color: '#fff', fontSize: '12px' }}
+                      />
+                      <Bar dataKey="total" radius={[0, 8, 8, 0]} barSize={22}>
+                        {top5KeluhanData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={BAR_COLORS[index % BAR_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="text-center py-10 space-y-3">
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
+                    <HeartPulse className="w-8 h-8 opacity-70" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-300">Belum ada data keluhan bulan ini</h4>
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                      Gunakan menu <strong>Pendaftaran Kunjungan</strong> untuk mencatat siswa yang berkunjung ke UKS. Chart keluhan terbanyak akan otomatis muncul di sini.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Activity Feed: Recent Visits */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold font-display text-white flex items-center gap-2">
+                <Clock className="w-4.5 h-4.5 text-emerald-400" />
+                <span>Aktivitas Kunjungan Terbaru</span>
               </h3>
               <Link
                 to="/riwayat"
-                className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 no-underline"
+                className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
               >
                 <span>Lihat Semua</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
-            {recentVisits.length > 0 ? (
-              <div className="space-y-3">
-                {recentVisits.map((visit) => {
-                  const color = getInitialColor(visit.siswa_nama)
-                  const initial = getInitials(visit.siswa_nama)
-
-                  return (
-                    <div
-                      key={visit.id}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/60 hover:border-slate-700 transition-all duration-200"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-extrabold shrink-0 shadow-md"
-                          style={{ backgroundColor: color }}
-                        >
-                          {initial}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-bold text-white truncate">
-                              {visit.siswa_nama}
-                            </p>
-                            <span className="text-[11px] text-slate-400 font-mono">({visit.kelas})</span>
+            <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-2 shadow-xl backdrop-blur-md overflow-hidden">
+              {recentVisits.length > 0 ? (
+                <div className="divide-y divide-slate-800/60">
+                  {recentVisits.map((visit) => {
+                    const initial = getInitials(visit.siswa_nama)
+                    const color = getInitialColor(visit.siswa_nama)
+                    return (
+                      <div
+                        key={visit.id}
+                        onClick={() => setSelectedVisit(visit)}
+                        className="p-4 hover:bg-slate-800/50 transition-all duration-150 cursor-pointer flex items-center justify-between gap-4 rounded-xl"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-extrabold text-xs shrink-0 shadow-md"
+                            style={{ backgroundColor: color }}
+                          >
+                            {initial}
                           </div>
-                          <p className="text-xs text-slate-400 truncate mt-0.5">
-                            {visit.keluhan_utama} {visit.is_darurat && <span className="text-rose-400 font-extrabold">· DARURAT</span>}
-                          </p>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-bold text-white truncate">
+                                {visit.siswa_nama}
+                              </h4>
+                              {visit.is_darurat && (
+                                <span className="text-[10px] font-black text-rose-300 bg-rose-500/20 border border-rose-500/30 px-1.5 py-0.2 rounded">
+                                  DARURAT
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-400 truncate mt-0.5">
+                              Kelas {visit.kelas} · Keluhan: <span className="text-slate-200">{visit.keluhan_utama}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <Badge variant={getStatusVariant(visit.status)}>
+                            {visit.status}
+                          </Badge>
+                          <span className="block text-[11px] text-slate-500 font-mono mt-1">
+                            {formatWaktu(visit.waktu_masuk)} WIB
+                          </span>
                         </div>
                       </div>
-
-                      <div className="text-right shrink-0 ml-3">
-                        <Badge variant={getStatusVariant(visit.status)}>
-                          {visit.status}
-                        </Badge>
-                        <p className="text-[11px] text-slate-500 font-mono mt-1">
-                          {formatWaktu(visit.waktu_masuk)}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-10 text-slate-500 space-y-2">
-                <Inbox className="w-10 h-10 mx-auto opacity-30 text-emerald-400" />
-                <p className="text-xs">Belum ada kunjungan siswa hari ini</p>
-              </div>
-            )}
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="p-10 text-center text-slate-500 space-y-3">
+                  <Inbox className="w-10 h-10 mx-auto text-emerald-500/30" />
+                  <p className="text-xs font-bold text-slate-300">Belum ada kunjungan terbaru hari ini</p>
+                  <p className="text-[11px] text-slate-500">Gunakan tombol 'Tambah Kunjungan' di atas untuk mencatat siswa sakit</p>
+                </div>
+              )}
+            </div>
           </div>
+        </div>
 
-          <div className="pt-3 border-t border-slate-800">
-            <Link
-              to="/pendaftaran"
-              className="
-                w-full py-3 px-4 rounded-xl bg-slate-800/80 hover:bg-slate-800
-                text-slate-200 font-bold text-xs transition-all duration-200 flex items-center justify-center gap-2 no-underline border border-slate-700
-              "
-            >
-              <ClipboardPlus className="w-4 h-4 text-emerald-400" />
-              <span>Input Kunjungan Baru</span>
-            </Link>
+        {/* Right Area (4 cols): Quick Actions Menu */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-6 space-y-4 shadow-xl backdrop-blur-md">
+            <h3 className="text-sm font-bold font-display text-white flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-emerald-400" />
+              <span>Akses Cepat UKS</span>
+            </h3>
+
+            <div className="grid grid-cols-1 gap-2.5 text-xs font-bold">
+              <Link
+                to="/pendaftaran"
+                className="p-3.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-slate-200 hover:text-white flex items-center justify-between group transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <PlusCircle className="w-4 h-4 text-emerald-400" />
+                  <span>Daftar Kunjungan Sakit</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+              </Link>
+
+              <Link
+                to="/riwayat"
+                className="p-3.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-slate-200 hover:text-white flex items-center justify-between group transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <Clock className="w-4 h-4 text-sky-400" />
+                  <span>Riwayat Kunjungan</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 transition-colors" />
+              </Link>
+
+              <Link
+                to="/siswa"
+                className="p-3.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-slate-200 hover:text-white flex items-center justify-between group transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <Users className="w-4 h-4 text-amber-400" />
+                  <span>Database Siswa</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+              </Link>
+
+              <Link
+                to="/laporan"
+                className="p-3.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-slate-200 hover:text-white flex items-center justify-between group transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="w-4 h-4 text-rose-400" />
+                  <span>Laporan PDF & Analitik</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-rose-400 transition-colors" />
+              </Link>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Quick Detail Modal */}
+      <Modal
+        isOpen={!!selectedVisit}
+        onClose={() => setSelectedVisit(null)}
+        title="Detail Kunjungan Siswa"
+        size="sm"
+      >
+        {selectedVisit && (
+          <div className="space-y-4 text-xs">
+            <div className="flex items-center gap-3 p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0"
+                style={{ backgroundColor: getInitialColor(selectedVisit.siswa_nama) }}
+              >
+                {getInitials(selectedVisit.siswa_nama)}
+              </div>
+              <div>
+                <h4 className="font-bold text-white text-sm">{selectedVisit.siswa_nama}</h4>
+                <p className="text-[11px] text-slate-400">NIS: {selectedVisit.siswa_nis} · Kelas {selectedVisit.kelas}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div>
+                <span className="text-slate-400 font-medium">Keluhan Utama:</span>
+                <p className="font-bold text-white text-sm mt-0.5">{selectedVisit.keluhan_utama}</p>
+              </div>
+              <div>
+                <span className="text-slate-400 font-medium">Tindakan:</span>
+                <p className="text-slate-200 mt-0.5">{selectedVisit.tindakan || '-'}</p>
+              </div>
+              <div>
+                <span className="text-slate-400 font-medium">Status Penanganan:</span>
+                <div className="mt-1">
+                  <Badge variant={getStatusVariant(selectedVisit.status)}>
+                    {selectedVisit.status}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-800 flex justify-end">
+              <button
+                onClick={() => setSelectedVisit(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

@@ -1,8 +1,16 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Heart, Lock, User, Mail, Phone, Shield, Eye, EyeOff, UserPlus, Sparkles, CheckCircle2 } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { Heart, Lock, User, AtSign, Phone, Shield, Eye, EyeOff, UserPlus, Sparkles, CheckCircle2, XCircle } from 'lucide-react'
+import { useAuth, validateUsername } from '../context/AuthContext'
 import { useToast } from '../components/common/Toast'
+
+// Aturan username yang akan ditampilkan di UI
+const USERNAME_RULES = [
+  { label: 'Minimal 4 karakter, maksimal 20 karakter', check: (v) => v.length >= 4 && v.length <= 20 },
+  { label: 'Huruf kecil semua (a-z)', check: (v) => /^[a-z]/.test(v) && !/[A-Z]/.test(v) },
+  { label: 'Tidak boleh dimulai dengan angka', check: (v) => v.length > 0 && !/^[0-9]/.test(v) },
+  { label: 'Hanya huruf kecil, angka, dan underscore (_)', check: (v) => /^[a-z0-9_]+$/.test(v) },
+]
 
 export default function Register() {
   const navigate = useNavigate()
@@ -12,7 +20,7 @@ export default function Register() {
   const [formData, setFormData] = useState({
     nama_lengkap: '',
     nip: '',
-    email: '',
+    username: '',
     no_telepon: '',
     password: '',
     confirmPassword: ''
@@ -20,12 +28,22 @@ export default function Register() {
 
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [usernameActive, setUsernameActive] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleChange = (field, value) => {
+    if (field === 'username') {
+      // Auto-lowercase dan hapus karakter tidak valid secara langsung
+      value = value.toLowerCase().replace(/[^a-z0-9_]/g, '')
+    }
+    setFormData({ ...formData, [field]: value })
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!formData.email.toLowerCase().endsWith('@sdn05parambahan.id')) {
-      toast.error('Email harus menggunakan domain resmi sekolah (@sdn05parambahan.id)!')
+    const usernameError = validateUsername(formData.username)
+    if (usernameError) {
+      toast.error(usernameError)
       return
     }
 
@@ -37,7 +55,7 @@ export default function Register() {
     setLoading(true)
 
     try {
-      register(formData)
+      await register(formData)
       toast.success('Pendaftaran akun berhasil! Selamat datang di UKS Digital.')
       navigate('/')
     } catch (err) {
@@ -46,6 +64,8 @@ export default function Register() {
       setLoading(false)
     }
   }
+
+  const isUsernameValid = !validateUsername(formData.username)
 
   return (
     <div className="min-h-screen w-full bg-[#0B132B] flex items-center justify-center p-4 py-8 relative overflow-hidden">
@@ -88,7 +108,7 @@ export default function Register() {
             <input
               type="text"
               value={formData.nama_lengkap}
-              onChange={(e) => setFormData({ ...formData, nama_lengkap: e.target.value })}
+              onChange={(e) => handleChange('nama_lengkap', e.target.value)}
               placeholder="Masukkan nama lengkap..."
               className="
                 w-full px-4 py-2.5 rounded-xl border border-slate-800
@@ -100,16 +120,16 @@ export default function Register() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* NIP Pegawai atau NIS Dokter Kecil */}
+            {/* NIP / NIS */}
             <div className="space-y-1.5">
               <label className="font-bold text-slate-300 flex items-center gap-1.5">
                 <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                <span>NIP Pegawai / NIS Dokter Kecil <span className="text-rose-400">*</span></span>
+                <span>NIP / NIS Dokter Kecil <span className="text-rose-400">*</span></span>
               </label>
               <input
                 type="text"
                 value={formData.nip}
-                onChange={(e) => setFormData({ ...formData, nip: e.target.value })}
+                onChange={(e) => handleChange('nip', e.target.value)}
                 placeholder="NIP atau NIS..."
                 className="
                   w-full px-4 py-2.5 rounded-xl border border-slate-800
@@ -129,7 +149,7 @@ export default function Register() {
               <input
                 type="text"
                 value={formData.no_telepon}
-                onChange={(e) => setFormData({ ...formData, no_telepon: e.target.value })}
+                onChange={(e) => handleChange('no_telepon', e.target.value)}
                 placeholder="0812..."
                 className="
                   w-full px-4 py-2.5 rounded-xl border border-slate-800
@@ -140,27 +160,63 @@ export default function Register() {
             </div>
           </div>
 
-          {/* Email Sekolah (@sdn05parambahan.id) */}
+          {/* Username */}
           <div className="space-y-1.5">
             <label className="font-bold text-slate-300 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Email Resmi Sekolah <span className="text-rose-400">*</span></span>
+                <AtSign className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Username <span className="text-rose-400">*</span></span>
               </span>
-              <span className="text-[10px] text-emerald-400 font-mono font-bold">Wajib @sdn05parambahan.id</span>
+              {formData.username.length > 0 && (
+                <span className={`text-[10px] font-bold font-mono ${isUsernameValid ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {isUsernameValid ? '✓ Valid' : '✗ Tidak valid'}
+                </span>
+              )}
             </label>
             <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="nama@sdn05parambahan.id"
-              className="
-                w-full px-4 py-2.5 rounded-xl border border-slate-800
-                bg-slate-950 text-white text-sm
-                focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500
-              "
+              type="text"
+              value={formData.username}
+              onChange={(e) => handleChange('username', e.target.value)}
+              onFocus={() => setUsernameActive(true)}
+              onBlur={() => setUsernameActive(false)}
+              placeholder="contoh: budi_santoso"
+              maxLength={20}
+              className={`
+                w-full px-4 py-2.5 rounded-xl border
+                bg-slate-950 text-white font-mono text-sm
+                focus:outline-none focus:ring-2 focus:border-emerald-500
+                transition-all duration-200
+                ${formData.username.length > 0
+                  ? isUsernameValid
+                    ? 'border-emerald-600 focus:ring-emerald-500/30'
+                    : 'border-rose-700 focus:ring-rose-500/30'
+                  : 'border-slate-800 focus:ring-emerald-500/30'
+                }
+              `}
               required
+              autoComplete="username"
             />
+
+            {/* Panduan aturan username — tampil saat fokus atau ada isian */}
+            {(usernameActive || formData.username.length > 0) && (
+              <div className="mt-2 p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Aturan Username</p>
+                {USERNAME_RULES.map((rule, i) => {
+                  const passed = formData.username.length > 0 && rule.check(formData.username)
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      {passed
+                        ? <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                        : <XCircle className="w-3 h-3 text-slate-600 flex-shrink-0" />
+                      }
+                      <span className={`text-[11px] ${passed ? 'text-emerald-300' : 'text-slate-500'}`}>
+                        {rule.label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -173,7 +229,7 @@ export default function Register() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onChange={(e) => handleChange('password', e.target.value)}
                   placeholder="Buat kata sandi..."
                   className="
                     w-full pl-4 pr-10 py-2.5 rounded-xl border border-slate-800
@@ -181,6 +237,7 @@ export default function Register() {
                     focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500
                   "
                   required
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -200,26 +257,34 @@ export default function Register() {
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                onChange={(e) => handleChange('confirmPassword', e.target.value)}
                 placeholder="Ulangi kata sandi..."
-                className="
-                  w-full px-4 py-2.5 rounded-xl border border-slate-800
+                className={`
+                  w-full px-4 py-2.5 rounded-xl border
                   bg-slate-950 text-white text-sm
                   focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500
-                "
+                  ${formData.confirmPassword.length > 0
+                    ? formData.password === formData.confirmPassword
+                      ? 'border-emerald-600'
+                      : 'border-rose-700'
+                    : 'border-slate-800'
+                  }
+                `}
                 required
+                autoComplete="new-password"
               />
             </div>
           </div>
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !isUsernameValid}
             className="
               w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400
               text-white font-extrabold text-sm uppercase tracking-wide
               shadow-xl shadow-emerald-950/50 transition-all duration-200 cursor-pointer border border-emerald-400/30
               flex items-center justify-center gap-2 mt-4
+              disabled:opacity-50 disabled:cursor-not-allowed
             "
           >
             <UserPlus className="w-4 h-4" />

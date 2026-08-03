@@ -1,30 +1,105 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   User,
   Building2,
   Save,
-  ShieldCheck,
-  Building
+  AtSign,
+  Building,
+  Loader2
 } from 'lucide-react'
 import PageHeader from '../components/layout/PageHeader'
-import { petugasUks as initialPetugas, dataSekolah as initialSekolah } from '../data/mockData'
 import { useToast } from '../components/common/Toast'
+import { useAuth } from '../context/AuthContext'
 import { getInitials, getInitialColor } from '../utils/formatters'
+import { api } from '../utils/api'
+import { dataSekolah as fallbackSekolah } from '../data/mockData'
 
 export default function Pengaturan() {
   const toast = useToast()
+  const { user, updateUser } = useAuth()
 
-  const [petugas, setPetugas] = useState(initialPetugas)
-  const [sekolah, setSekolah] = useState(initialSekolah)
+  // Inisialisasi profil dari data user yang sedang login
+  const [petugas, setPetugas] = useState({
+    nama_lengkap: user?.nama_lengkap || '',
+    username: user?.username || '',
+    nip: user?.nip || '',
+    no_telepon: user?.no_telepon || '',
+    role: user?.role || ''
+  })
 
-  const handleSavePetugas = (e) => {
+  const [sekolah, setSekolah] = useState(fallbackSekolah)
+  const [loadingPetugas, setLoadingPetugas] = useState(false)
+  const [loadingSekolah, setLoadingSekolah] = useState(false)
+  const [loadingData, setLoadingData] = useState(true)
+
+  // Ambil data terkini dari API saat halaman dibuka
+  useEffect(() => {
+    async function fetchData() {
+      setLoadingData(true)
+      try {
+        const res = await api.get('/pengaturan')
+        if (res?.success && res.data) {
+          // Update profil petugas dari DB (prioritaskan data DB, fallback ke session)
+          if (res.data.petugas && res.data.petugas.id) {
+            const fetched = {
+              nama_lengkap: res.data.petugas.nama_lengkap || user?.nama_lengkap || '',
+              username: res.data.petugas.username || user?.username || '',
+              nip: res.data.petugas.nip || user?.nip || '',
+              no_telepon: res.data.petugas.no_telepon || user?.no_telepon || '',
+              role: res.data.petugas.role || user?.role || ''
+            }
+            setPetugas(fetched)
+            updateUser(fetched)
+          }
+          // Update data sekolah dari DB
+          if (res.data.sekolah && res.data.sekolah.id) {
+            setSekolah(res.data.sekolah)
+          }
+        }
+      } catch (err) {
+        // Fallback ke data session yang sudah ada — tidak perlu tampilkan error
+      } finally {
+        setLoadingData(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  const handleSavePetugas = async (e) => {
     e.preventDefault()
-    toast.success('Profil petugas UKS berhasil diperbarui!')
+    setLoadingPetugas(true)
+    try {
+      const res = await api.put('/pengaturan/petugas', {
+        nama_lengkap: petugas.nama_lengkap,
+        username: petugas.username,
+        nip: petugas.nip,
+        no_telepon: petugas.no_telepon
+      })
+      // Update AuthContext & Session Storage secara reaktif
+      if (res?.data) {
+        updateUser(res.data)
+      } else {
+        updateUser(petugas)
+      }
+      toast.success('Profil petugas UKS berhasil diperbarui!')
+    } catch (err) {
+      toast.error(err.message || 'Gagal menyimpan profil petugas.')
+    } finally {
+      setLoadingPetugas(false)
+    }
   }
 
-  const handleSaveSekolah = (e) => {
+  const handleSaveSekolah = async (e) => {
     e.preventDefault()
-    toast.success('Data sekolah berhasil diperbarui!')
+    setLoadingSekolah(true)
+    try {
+      await api.put('/pengaturan/sekolah', sekolah)
+      toast.success('Data sekolah berhasil diperbarui!')
+    } catch (err) {
+      toast.error(err.message || 'Gagal menyimpan data sekolah.')
+    } finally {
+      setLoadingSekolah(false)
+    }
   }
 
   const initial = getInitials(petugas.nama_lengkap)
@@ -42,10 +117,10 @@ export default function Pengaturan() {
           </div>
           <div>
             <h3 className="text-base font-bold font-display text-white">
-              Profil Petugas UKS Utama
+              Profil Akun Saya
             </h3>
             <p className="text-xs text-slate-400">
-              Kelola informasi identitas dan kontak petugas yang bertugas.
+              Informasi akun yang sedang login. Perubahan langsung tersimpan ke database.
             </p>
           </div>
         </div>
@@ -57,14 +132,23 @@ export default function Pengaturan() {
               className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-lg shrink-0"
               style={{ backgroundColor: avatarBg }}
             >
-              {initial}
+              {loadingData ? <Loader2 className="w-6 h-6 animate-spin" /> : initial}
             </div>
             <div>
-              <h4 className="text-base font-bold text-white">{petugas.nama_lengkap}</h4>
-              <p className="text-xs text-emerald-400 font-semibold mt-0.5">Petugas UKS Utama</p>
-              <span className="inline-block px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[11px] font-mono mt-1 border border-slate-700">
-                NIP: {petugas.nip}
-              </span>
+              <h4 className="text-base font-bold text-white">
+                {loadingData ? 'Memuat...' : petugas.nama_lengkap || '—'}
+              </h4>
+              <p className="text-xs text-emerald-400 font-semibold mt-0.5">{petugas.role || 'Petugas UKS'}</p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="inline-block px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[11px] font-mono border border-slate-700">
+                  NIP: {petugas.nip || '—'}
+                </span>
+                {petugas.username && (
+                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-900/40 text-emerald-400 text-[11px] font-mono border border-emerald-800">
+                    @{petugas.username}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -75,7 +159,7 @@ export default function Pengaturan() {
                 type="text"
                 value={petugas.nama_lengkap}
                 onChange={(e) => setPetugas({ ...petugas, nama_lengkap: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-sm font-bold"
+                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all"
                 required
               />
             </div>
@@ -86,19 +170,24 @@ export default function Pengaturan() {
                 type="text"
                 value={petugas.nip}
                 onChange={(e) => setPetugas({ ...petugas, nip: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 font-mono text-white text-sm"
+                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 font-mono text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="font-bold text-slate-300">Email Utama</label>
+              <label className="font-bold text-slate-300 flex items-center gap-1.5">
+                <AtSign className="w-3.5 h-3.5 text-emerald-400" />
+                Username Login
+              </label>
               <input
-                type="email"
-                value={petugas.email}
-                onChange={(e) => setPetugas({ ...petugas, email: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-sm"
-                required
+                type="text"
+                value={petugas.username}
+                onChange={(e) => setPetugas({ ...petugas, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                placeholder="contoh: siti_rahmawati"
+                maxLength={20}
+                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 font-mono text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all"
               />
+              <p className="text-[10px] text-slate-500">Huruf kecil, angka, underscore. Min 4, max 20 karakter.</p>
             </div>
 
             <div className="space-y-2">
@@ -107,7 +196,7 @@ export default function Pengaturan() {
                 type="text"
                 value={petugas.no_telepon}
                 onChange={(e) => setPetugas({ ...petugas, no_telepon: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 font-mono text-white text-sm"
+                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 font-mono text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all"
               />
             </div>
           </div>
@@ -115,13 +204,19 @@ export default function Pengaturan() {
           <div className="pt-2 flex justify-end">
             <button
               type="submit"
+              disabled={loadingPetugas}
               className="
                 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400
-                text-white font-extrabold text-xs shadow-lg shadow-emerald-950/50 transition-all duration-200 flex items-center gap-2 cursor-pointer border border-emerald-400/30
+                text-white font-extrabold text-xs shadow-lg shadow-emerald-950/50 transition-all duration-200
+                flex items-center gap-2 cursor-pointer border border-emerald-400/30
+                disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
-              <Save className="w-4 h-4" />
-              <span>Simpan Profil Petugas</span>
+              {loadingPetugas
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Save className="w-4 h-4" />
+              }
+              <span>{loadingPetugas ? 'Menyimpan...' : 'Simpan Profil'}</span>
             </button>
           </div>
         </form>
@@ -151,7 +246,7 @@ export default function Pengaturan() {
                 type="text"
                 value={sekolah.nama_sekolah}
                 onChange={(e) => setSekolah({ ...sekolah, nama_sekolah: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-base font-bold"
+                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-base font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all"
                 required
               />
             </div>
@@ -162,7 +257,7 @@ export default function Pengaturan() {
                 type="text"
                 value={sekolah.npsn}
                 onChange={(e) => setSekolah({ ...sekolah, npsn: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 font-mono text-white text-sm"
+                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 font-mono text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all"
               />
             </div>
 
@@ -172,7 +267,7 @@ export default function Pengaturan() {
                 type="text"
                 value={sekolah.telepon_sekolah}
                 onChange={(e) => setSekolah({ ...sekolah, telepon_sekolah: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 font-mono text-white text-sm"
+                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 font-mono text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all"
               />
             </div>
 
@@ -182,7 +277,7 @@ export default function Pengaturan() {
                 type="text"
                 value={sekolah.kepala_sekolah}
                 onChange={(e) => setSekolah({ ...sekolah, kepala_sekolah: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-sm font-semibold"
+                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all"
               />
             </div>
 
@@ -192,7 +287,7 @@ export default function Pengaturan() {
                 rows={3}
                 value={sekolah.alamat}
                 onChange={(e) => setSekolah({ ...sekolah, alamat: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-sm"
+                className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all"
               />
             </div>
           </div>
@@ -200,13 +295,19 @@ export default function Pengaturan() {
           <div className="pt-2 flex justify-end">
             <button
               type="submit"
+              disabled={loadingSekolah}
               className="
                 px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700
-                text-white font-extrabold text-xs shadow-lg transition-all duration-200 flex items-center gap-2 cursor-pointer border border-slate-700
+                text-white font-extrabold text-xs shadow-lg transition-all duration-200
+                flex items-center gap-2 cursor-pointer border border-slate-700
+                disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
-              <Save className="w-4 h-4 text-emerald-400" />
-              <span>Simpan Data Sekolah</span>
+              {loadingSekolah
+                ? <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                : <Save className="w-4 h-4 text-emerald-400" />
+              }
+              <span>{loadingSekolah ? 'Menyimpan...' : 'Simpan Data Sekolah'}</span>
             </button>
           </div>
         </form>

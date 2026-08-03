@@ -11,14 +11,15 @@ import PageHeader from '../components/layout/PageHeader'
 import DataTable from '../components/common/DataTable'
 import Modal from '../components/common/Modal'
 import CustomSelect from '../components/common/CustomSelect'
-import { siswaList as initialSiswaList, kelasOptions } from '../data/mockData'
+import { kelasOptions } from '../data/mockData'
 import { getInitials, getInitialColor, formatTanggalPendek } from '../utils/formatters'
 import { useToast } from '../components/common/Toast'
+import { useData } from '../context/DataContext'
 
 export default function DataSiswa() {
   const toast = useToast()
+  const { siswaList, addSiswa, updateSiswa, deleteSiswa } = useData()
 
-  const [siswaData, setSiswaData] = useState(initialSiswaList)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterKelas, setFilterKelas] = useState('')
 
@@ -52,9 +53,9 @@ export default function DataSiswa() {
   ]
 
   // Filter logic
-  const filteredSiswa = siswaData.filter((s) => {
+  const filteredSiswa = siswaList.filter((s) => {
     const q = searchQuery.toLowerCase()
-    const matchQuery = !searchQuery || s.nama.toLowerCase().includes(q) || s.nis.includes(q)
+    const matchQuery = !searchQuery || s.nama?.toLowerCase().includes(q) || s.nis?.includes(q)
     const matchKelas = !filterKelas || s.kelas === filterKelas
     return matchQuery && matchKelas
   })
@@ -90,7 +91,7 @@ export default function DataSiswa() {
   }
 
   // Save (Add or Update)
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault()
 
     if (!formData.nis || !formData.nama) {
@@ -99,16 +100,10 @@ export default function DataSiswa() {
     }
 
     if (editingSiswa) {
-      setSiswaData((prev) =>
-        prev.map((s) => (s.id === editingSiswa.id ? { ...s, ...formData } : s))
-      )
+      await updateSiswa(editingSiswa.id, formData)
       toast.success(`Data siswa ${formData.nama} berhasil diperbarui!`)
     } else {
-      const newSiswa = {
-        id: Date.now(),
-        ...formData
-      }
-      setSiswaData((prev) => [newSiswa, ...prev])
+      await addSiswa(formData)
       toast.success(`Siswa baru ${formData.nama} berhasil ditambahkan!`)
     }
 
@@ -116,9 +111,9 @@ export default function DataSiswa() {
   }
 
   // Delete
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!deletingSiswa) return
-    setSiswaData((prev) => prev.filter((s) => s.id !== deletingSiswa.id))
+    await deleteSiswa(deletingSiswa.id)
     toast.success(`Data siswa ${deletingSiswa.nama} berhasil dihapus.`)
     setDeletingSiswa(null)
   }

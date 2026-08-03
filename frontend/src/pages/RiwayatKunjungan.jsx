@@ -16,14 +16,16 @@ import Badge from '../components/common/Badge'
 import Modal from '../components/common/Modal'
 import CustomSelect from '../components/common/CustomSelect'
 import PrintReportTemplate from '../components/common/PrintReportTemplate'
-import { kunjunganList, kelasOptions, statusOptions, dataSekolah, petugasUks } from '../data/mockData'
+import { kelasOptions, statusOptions, dataSekolah, petugasUks } from '../data/mockData'
 import { formatTanggalWaktu, getInitials, getInitialColor } from '../utils/formatters'
 import { useToast } from '../components/common/Toast'
 import { useAuth } from '../context/AuthContext'
+import { useData } from '../context/DataContext'
 
 export default function RiwayatKunjungan() {
   const toast = useToast()
   const { user } = useAuth()
+  const { kunjunganList } = useData()
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('')

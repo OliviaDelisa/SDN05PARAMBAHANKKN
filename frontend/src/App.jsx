@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ToastProvider } from './components/common/Toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { DataProvider } from './context/DataContext'
 import AppLayout from './components/layout/AppLayout'
 
 // Pages
@@ -33,45 +34,47 @@ export default function App() {
   return (
     <ToastProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public Login & Register Routes */}
-            <Route
-              path="/login"
-              element={
-                <PublicOnlyRoute>
-                  <Login />
-                </PublicOnlyRoute>
-              }
-            />
-            <Route
-              path="/register"
-              element={
-                <PublicOnlyRoute>
-                  <Register />
-                </PublicOnlyRoute>
-              }
-            />
+        <DataProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public Login & Register Routes */}
+              <Route
+                path="/login"
+                element={
+                  <PublicOnlyRoute>
+                    <Login />
+                  </PublicOnlyRoute>
+                }
+              />
+              <Route
+                path="/register"
+                element={
+                  <PublicOnlyRoute>
+                    <Register />
+                  </PublicOnlyRoute>
+                }
+              />
 
-            {/* Protected Application Routes */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Dashboard />} />
-              <Route path="pendaftaran" element={<PendaftaranKunjungan />} />
-              <Route path="riwayat" element={<RiwayatKunjungan />} />
-              <Route path="siswa" element={<DataSiswa />} />
-              <Route path="laporan" element={<LaporanAnalitik />} />
-              <Route path="pengaturan" element={<Pengaturan />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
+              {/* Protected Application Routes */}
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Dashboard />} />
+                <Route path="pendaftaran" element={<PendaftaranKunjungan />} />
+                <Route path="riwayat" element={<RiwayatKunjungan />} />
+                <Route path="siswa" element={<DataSiswa />} />
+                <Route path="laporan" element={<LaporanAnalitik />} />
+                <Route path="pengaturan" element={<Pengaturan />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </DataProvider>
       </AuthProvider>
     </ToastProvider>
   )

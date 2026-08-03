@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Heart, Lock, User, Eye, EyeOff, LogIn, Sparkles, ShieldCheck, UserPlus } from 'lucide-react'
+import { Heart, Lock, User, Eye, EyeOff, LogIn, Sparkles, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/common/Toast'
 
@@ -9,28 +9,28 @@ export default function Login() {
   const { login } = useAuth()
   const toast = useToast()
 
-  const [nipOrEmail, setNipOrEmail] = useState('198507152010012003')
-  const [password, setPassword] = useState('admin')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      login(nipOrEmail, password)
+      await login(username.trim(), password)
       toast.success('Berhasil masuk! Selamat bekerja.')
       navigate('/')
     } catch (err) {
-      toast.error(err.message || 'Login gagal, periksa NIP dan Password!')
+      toast.error(err.message || 'Username/NIP atau Password yang Anda masukkan salah!')
     } finally {
       setLoading(false)
     }
   }
 
   const handleQuickDemo = () => {
-    setNipOrEmail('198507152010012003')
+    setUsername('siti_rahmawati')
     setPassword('admin')
   }
 
@@ -69,19 +69,20 @@ export default function Login() {
           <div className="space-y-2">
             <label className="font-bold text-slate-300 flex items-center gap-1.5">
               <User className="w-4 h-4 text-emerald-400" />
-              <span>NIP atau Email Petugas</span>
+              <span>Username atau NIP</span>
             </label>
             <input
               type="text"
-              value={nipOrEmail}
-              onChange={(e) => setNipOrEmail(e.target.value)}
-              placeholder="Masukkan NIP atau Email..."
+              value={username}
+              onChange={(e) => setUsername(e.target.value.toLowerCase())}
+              placeholder="Masukkan username atau NIP..."
               className="
                 w-full px-4 py-3 rounded-xl border border-slate-800
                 bg-slate-950 text-white font-mono text-sm
                 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500
                 transition-all duration-200
               "
+              autoComplete="username"
               required
             />
           </div>
@@ -103,6 +104,7 @@ export default function Login() {
                   focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500
                   transition-all duration-200
                 "
+                autoComplete="current-password"
                 required
               />
               <button

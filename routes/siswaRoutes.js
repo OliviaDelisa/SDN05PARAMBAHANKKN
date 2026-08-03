@@ -1,12 +1,11 @@
 import { Router } from 'express'
-import { siswaController } from '../controllers/siswaController.js'
+import { getSiswa, createSiswa, updateSiswa, deleteSiswa } from '../controllers/siswaController.js'
 
 const router = Router()
 
-router.get('/', siswaController.getAll)
-router.get('/:id', siswaController.getById)
-router.post('/', siswaController.create)
-router.put('/:id', siswaController.update)
-router.delete('/:id', siswaController.delete)
+router.get('/', getSiswa)
+router.post('/', createSiswa)
+router.put('/:id', updateSiswa)
+router.delete('/:id', deleteSiswa)
 
 export default router
