@@ -19,6 +19,9 @@ const menuItems = [
   { path: '/pengaturan', icon: Settings, label: 'Pengaturan' }
 ]
 
+// Breakpoint 'lg' Tailwind (harus sama dengan breakpoint yang dipakai di className lg:hidden / lg:block)
+const MOBILE_BREAKPOINT = 1024
+
 export default function Sidebar({ open, onClose }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -32,6 +35,14 @@ export default function Sidebar({ open, onClose }) {
   const handleLogout = () => {
     logout()
     navigate('/login')
+  }
+
+  // Sidebar hanya boleh auto-close saat di layar mobile (overlay).
+  // Di desktop, klik menu tidak boleh men-collapse sidebar.
+  const handleNavClick = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT) {
+      onClose()
+    }
   }
 
   const sidebarInner = (
@@ -54,7 +65,7 @@ export default function Sidebar({ open, onClose }) {
             <NavLink
               key={item.path}
               to={item.path}
-              onClick={onClose}
+              onClick={handleNavClick}
               className={`
                 flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
                 transition no-underline select-none

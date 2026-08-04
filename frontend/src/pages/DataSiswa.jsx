@@ -41,7 +41,7 @@ export default function DataSiswa() {
 
   // Options formatted for CustomSelect
   const kelasFilterOptions = [
-    { value: '', label: 'Semua Kelas (1 - 6)' },
+    { value: '', label: 'Semua Kelas' },
     ...kelasOptions.map((k) => ({ value: k, label: `Kelas ${k}` }))
   ]
 
@@ -123,7 +123,7 @@ export default function DataSiswa() {
       key: 'nis',
       label: 'NIS',
       width: '110px',
-      render: (val) => <span className="font-mono text-xs font-bold text-slate-300">{val}</span>
+      render: (val) => <span className="font-mono text-xs text-slate-500">{val}</span>
     },
     {
       key: 'nama',
@@ -134,12 +134,12 @@ export default function DataSiswa() {
         return (
           <div className="flex items-center gap-3">
             <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-extrabold shrink-0 shadow-md"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
               style={{ backgroundColor: color }}
             >
               {initial}
             </div>
-            <span className="font-bold text-white">{val}</span>
+            <span className="font-semibold text-slate-900">{val}</span>
           </div>
         )
       }
@@ -149,8 +149,8 @@ export default function DataSiswa() {
       label: 'Kelas',
       width: '80px',
       render: (val) => (
-        <span className="font-extrabold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs">
-          Kelas {val}
+        <span className="font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md text-xs">
+          {val}
         </span>
       )
     },
@@ -159,21 +159,21 @@ export default function DataSiswa() {
       label: 'Jenis Kelamin',
       width: '120px',
       render: (val) => (
-        <span className="text-xs text-slate-300 font-medium">{val}</span>
+        <span className="text-xs text-slate-600">{val}</span>
       )
     },
     {
       key: 'tanggal_lahir',
       label: 'Tgl Lahir',
       width: '120px',
-      render: (val) => <span className="text-xs text-slate-400 font-mono">{val ? formatTanggalPendek(val) : '-'}</span>
+      render: (val) => <span className="text-xs text-slate-500 font-mono">{val ? formatTanggalPendek(val) : '-'}</span>
     },
     {
       key: 'nama_wali',
       label: 'Orang Tua / Wali',
       render: (val, row) => (
         <div>
-          <div className="text-xs font-semibold text-slate-200">{val || '-'}</div>
+          <div className="text-xs font-medium text-slate-700">{val || '-'}</div>
           {row.telepon_wali && (
             <div className="text-[11px] text-slate-400 font-mono">{row.telepon_wali}</div>
           )}
@@ -183,20 +183,20 @@ export default function DataSiswa() {
     {
       key: 'aksi',
       label: 'Aksi',
-      width: '100px',
+      width: '90px',
       render: (_, row) => (
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => handleOpenEdit(row)}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 transition-colors"
-            title="Edit Data"
+            className="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-500 hover:text-emerald-700 transition-colors"
+            title="Edit"
           >
             <Edit2 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => setDeletingSiswa(row)}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-300 transition-colors"
-            title="Hapus Siswa"
+            className="p-1.5 rounded-lg bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 transition-colors"
+            title="Hapus"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -206,15 +206,15 @@ export default function DataSiswa() {
   ]
 
   return (
-    <div className="space-y-8">
-      <PageHeader title="Database Siswa">
+    <div className="space-y-5">
+      <PageHeader title="">
         <button
           onClick={handleOpenAdd}
           className="
-            inline-flex items-center gap-2 px-5 py-3 rounded-xl
-            bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400
-            text-white font-extrabold text-xs uppercase tracking-wide
-            shadow-lg shadow-emerald-950/50 transition-all duration-200 cursor-pointer border border-emerald-400/30
+            inline-flex items-center gap-2 px-4 py-2.5 rounded-lg
+            bg-emerald-600 hover:bg-emerald-700
+            text-white font-semibold text-sm
+            transition-colors cursor-pointer
           "
         >
           <UserPlus className="w-4 h-4" />
@@ -222,8 +222,8 @@ export default function DataSiswa() {
         </button>
       </PageHeader>
 
-      {/* Filter & Counter Bar */}
-      <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-5 space-y-4 shadow-xl backdrop-blur-md">
+      {/* Filter Bar */}
+      <div className="rounded-xl bg-white border border-slate-200 p-4 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
           <div className="sm:col-span-8 relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -231,11 +231,11 @@ export default function DataSiswa() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari nama atau NIS siswa..."
+              placeholder="Cari nama atau NIS..."
               className="
-                w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-800
-                bg-slate-950/80 text-xs text-white placeholder:text-slate-500
-                focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500
+                w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200
+                bg-white text-sm text-slate-800 placeholder:text-slate-400
+                focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400
               "
             />
           </div>
@@ -250,8 +250,8 @@ export default function DataSiswa() {
           </div>
         </div>
 
-        <div className="pt-3 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between">
-          <span>Total <strong className="text-white">{filteredSiswa.length}</strong> siswa terdaftar</span>
+        <div className="pt-3 border-t border-slate-100 text-xs text-slate-500">
+          {filteredSiswa.length} siswa terdaftar
         </div>
       </div>
 
@@ -259,7 +259,7 @@ export default function DataSiswa() {
       <DataTable
         columns={columns}
         data={filteredSiswa}
-        emptyMessage="Tidak ada data siswa yang cocok dengan filter."
+        emptyMessage="Tidak ada data siswa yang cocok."
       />
 
       {/* Add / Edit Modal */}
@@ -269,25 +269,25 @@ export default function DataSiswa() {
         title={editingSiswa ? 'Edit Data Siswa' : 'Tambah Siswa Baru'}
         size="md"
       >
-        <form onSubmit={handleSave} className="space-y-4 text-xs">
+        <form onSubmit={handleSave} className="space-y-4 text-sm">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-300">
-                NIS <span className="text-rose-400">*</span>
+              <label className="text-xs font-semibold text-slate-500">
+                NIS <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.nis}
                 onChange={(e) => setFormData({ ...formData, nis: e.target.value })}
                 placeholder="Misal: 20241032"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-white font-mono text-sm"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
                 required
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-300">
-                Kelas <span className="text-rose-400">*</span>
+              <label className="text-xs font-semibold text-slate-500">
+                Kelas <span className="text-red-500">*</span>
               </label>
               <CustomSelect
                 options={kelasFormOptions}
@@ -298,22 +298,22 @@ export default function DataSiswa() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="font-bold text-slate-300">
-              Nama Lengkap <span className="text-rose-400">*</span>
+            <label className="text-xs font-semibold text-slate-500">
+              Nama Lengkap <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.nama}
               onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
               placeholder="Nama lengkap siswa..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-white text-sm"
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
               required
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-300">Jenis Kelamin</label>
+              <label className="text-xs font-semibold text-slate-500">Jenis Kelamin</label>
               <CustomSelect
                 options={jkOptions}
                 value={formData.jenis_kelamin}
@@ -322,52 +322,55 @@ export default function DataSiswa() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-300">Tanggal Lahir</label>
+              <label className="text-xs font-semibold text-slate-500">Tanggal Lahir</label>
               <input
                 type="date"
                 value={formData.tanggal_lahir}
                 onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-white text-sm font-mono"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
               />
             </div>
           </div>
 
-          <div className="space-y-1.5 pt-3 border-t border-slate-800">
-            <label className="font-bold text-slate-300">Nama Orang Tua / Wali</label>
+          <div className="space-y-1.5 pt-3 border-t border-slate-100">
+            <label className="text-xs font-semibold text-slate-500">Nama Orang Tua / Wali</label>
             <input
               type="text"
               value={formData.nama_wali}
               onChange={(e) => setFormData({ ...formData, nama_wali: e.target.value })}
               placeholder="Nama ibu/ayah/wali..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-white text-sm"
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="font-bold text-slate-300">No. Telepon Wali</label>
+            <label className="text-xs font-semibold text-slate-500">No. Telepon Wali</label>
             <input
               type="text"
               value={formData.telepon_wali}
-              onChange={(e) => setFormData({ ...formData, telepon_wali: e.target.value })}
+              onChange={(e) => {
+                const onlyNumbers = e.target.value.replace(/\D/g, '')
+                setFormData({ ...formData, telepon_wali: onlyNumbers })
+              }}
               placeholder="0812..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-white font-mono text-sm"
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
             />
           </div>
 
-          <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold"
+              className="px-4 py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium text-sm"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-extrabold flex items-center gap-2 cursor-pointer shadow-lg"
+              className="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center gap-2 cursor-pointer"
             >
               <Save className="w-4 h-4" />
-              <span>Simpan Data</span>
+              <span>Simpan</span>
             </button>
           </div>
         </form>
@@ -381,23 +384,23 @@ export default function DataSiswa() {
         size="sm"
       >
         {deletingSiswa && (
-          <div className="space-y-5 text-xs">
-            <div className="flex items-center gap-3 p-4 bg-rose-500/15 rounded-xl border border-rose-500/30 text-rose-200">
-              <AlertCircle className="w-6 h-6 text-rose-400 shrink-0" />
-              <p className="leading-relaxed">
-                Apakah Anda yakin ingin menghapus data siswa <strong>{deletingSiswa.nama}</strong> ({deletingSiswa.nis})? Action ini tidak dapat dibatalkan.
+          <div className="space-y-5 text-sm">
+            <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg border border-red-200 text-red-700">
+              <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+              <p className="text-sm leading-relaxed">
+                Hapus data siswa <strong>{deletingSiswa.nama}</strong> ({deletingSiswa.nis})? Tindakan ini tidak dapat dibatalkan.
               </p>
             </div>
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeletingSiswa(null)}
-                className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold"
+                className="px-4 py-2.5 rounded-lg bg-slate-100 text-slate-600 font-medium text-sm"
               >
                 Batal
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold shadow-lg cursor-pointer"
+                className="px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm cursor-pointer"
               >
                 Hapus
               </button>

@@ -38,29 +38,29 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
       }}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md transition-opacity" />
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" />
 
       {/* Content */}
       <div
         ref={contentRef}
         className={`
-          relative bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl
+          relative bg-white border border-slate-200 rounded-2xl shadow-2xl
           w-full ${sizeClasses[size] || sizeClasses.md}
           max-h-[90vh] overflow-y-auto z-10
-          animate-modal-in text-slate-100
+          animate-modal-in text-slate-800
         `}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
         {/* Header */}
-        <div className="sticky top-0 bg-slate-900/95 backdrop-blur-md z-10 flex items-center justify-between px-6 py-4 border-b border-slate-800">
-          <h2 id="modal-title" className="text-lg font-bold font-display text-white">
+        <div className="sticky top-0 bg-white/95 backdrop-blur-md z-10 flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 id="modal-title" className="text-lg font-bold font-display text-slate-900">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
             aria-label="Tutup"
           >
             <X className="w-5 h-5" />

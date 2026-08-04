@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Users,
@@ -14,6 +14,10 @@ import {
   Bar,
   LineChart,
   Line,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -26,22 +30,69 @@ import Modal from '../components/common/Modal'
 import { formatWaktu, getInitials, getInitialColor } from '../utils/formatters'
 import { useData } from '../context/DataContext'
 
+const PIE_COLORS = ['#10B981', '#0EA5E9', '#F59E0B', '#8B5CF6', '#F43F5E', '#94A3B8']
+
+const PERIOD_OPTIONS = [
+  { value: 'harian', label: 'Hari Ini' },
+  { value: 'mingguan', label: 'Minggu Ini' },
+  { value: 'bulanan', label: 'Bulan Ini' },
+  { value: 'tahunan', label: 'Tahun Ini' },
+  { value: 'semua', label: 'Semua' }
+]
+
+// Menghitung batas awal tanggal berdasarkan periode yang dipilih
+function getPeriodStart(period) {
+  const now = new Date()
+
+  switch (period) {
+    case 'harian':
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    case 'mingguan': {
+      const day = now.getDay() // 0 = Minggu
+      const diffToMonday = day === 0 ? 6 : day - 1
+      const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday)
+      return monday
+    }
+    case 'bulanan':
+      return new Date(now.getFullYear(), now.getMonth(), 1)
+    case 'tahunan':
+      return new Date(now.getFullYear(), 0, 1)
+    default:
+      return null // 'semua' -> tidak difilter
+  }
+}
+
 export default function Dashboard() {
   const { siswaList = [], kunjunganList = [] } = useData()
 
   const [selectedVisit, setSelectedVisit] = useState(null)
+  const [period, setPeriod] = useState('harian')
 
-  // Metric computations
+  // Data kunjungan yang sudah difilter sesuai periode terpilih
+  const filteredKunjungan = useMemo(() => {
+    const start = getPeriodStart(period)
+    if (!start) return kunjunganList
+
+    return kunjunganList.filter((k) => {
+      if (!k.waktu_masuk) return false
+      const waktu = new Date(k.waktu_masuk)
+      return waktu >= start
+    })
+  }, [kunjunganList, period])
+
+  const periodLabel = PERIOD_OPTIONS.find((p) => p.value === period)?.label || 'Semua'
+
+  // Metric computations (mengikuti periode terpilih)
   const totalSiswa = siswaList.length
-  const totalKunjungan = kunjunganList.length
-  const totalDarurat = kunjunganList.filter((k) => k.is_darurat).length
-  const totalKembali = kunjunganList.filter((k) => k.status === 'Kembali ke Kelas').length
+  const totalKunjungan = filteredKunjungan.length
+  const totalDarurat = filteredKunjungan.filter((k) => k.is_darurat).length
+  const totalKembali = filteredKunjungan.filter((k) => k.status === 'Kembali ke Kelas').length
 
-  const recentVisits = kunjunganList.slice(0, 5)
+  const recentVisits = filteredKunjungan.slice(0, 5)
 
-  // Top 5 keluhan bulan ini
+  // Top 5 keluhan pada periode terpilih
   const keluhanMap = {}
-  kunjunganList.forEach((k) => {
+  filteredKunjungan.forEach((k) => {
     if (k.keluhan_utama) {
       k.keluhan_utama.split(',').forEach((raw) => {
         const keluhan = raw.trim()
@@ -55,7 +106,34 @@ export default function Dashboard() {
     .sort((a, b) => b.total - a.total)
     .slice(0, 5)
 
-  // Tren kunjungan 7 hari terakhir
+  // Kunjungan per kelas (untuk donut chart) pada periode terpilih
+  const kelasMap = {}
+  filteredKunjungan.forEach((k) => {
+    if (k.kelas) kelasMap[k.kelas] = (kelasMap[k.kelas] || 0) + 1
+  })
+
+  const kelasChartData = Object.entries(kelasMap)
+    .map(([name, total]) => ({ name, total }))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+
+  // Siswa paling sering ke UKS (bar chart) pada periode terpilih
+  const siswaFrekuensiMap = {}
+  filteredKunjungan.forEach((k) => {
+    if (k.siswa_nama) siswaFrekuensiMap[k.siswa_nama] = (siswaFrekuensiMap[k.siswa_nama] || 0) + 1
+  })
+
+  const siswaBarData = Object.entries(siswaFrekuensiMap)
+    .map(([name, total]) => ({ name, total }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 7)
+
+  // Proporsi kunjungan per kelas (donut chart, dalam persentase)
+  const kelasPieData = kelasChartData.map((item) => ({
+    name: `Kelas ${item.name}`,
+    total: item.total
+  }))
+
+  // Tren kunjungan 7 hari terakhir (fixed, tidak mengikuti filter periode)
   const weeklyTrend = Array.from({ length: 7 }).map((_, i) => {
     const date = new Date()
     date.setDate(date.getDate() - (6 - i))
@@ -78,8 +156,26 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
 
-      {/* Aksi Cepat */}
-      <div className="flex justify-end">
+      {/* Filter Periode & Aksi Cepat */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center p-1 rounded-lg bg-slate-100 border border-slate-200">
+          {PERIOD_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setPeriod(opt.value)}
+              className={`
+                px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer
+                ${period === opt.value
+                  ? 'bg-white text-emerald-700 shadow-sm border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-700'}
+              `}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
         <Link
           to="/pendaftaran"
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition no-underline"
@@ -102,44 +198,43 @@ export default function Dashboard() {
           icon={Activity}
           value={totalKunjungan}
           unit="kunjungan"
-          label="Total Rekam Kunjungan"
+          label={`Kunjungan (${periodLabel})`}
           variant="info"
         />
         <StatCard
           icon={AlertTriangle}
           value={totalDarurat}
           unit="kasus"
-          label="Kasus Darurat"
+          label={`Kasus Darurat (${periodLabel})`}
           variant="warning"
         />
         <StatCard
           icon={CheckCircle2}
           value={totalKembali}
           unit="siswa"
-          label="Kembali ke Kelas"
+          label={`Kembali ke Kelas (${periodLabel})`}
           variant="success"
         />
       </div>
 
-      {/* Main Content Split */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Keluhan Terbanyak, Kunjungan per Kelas, & Proporsi Siswa */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Chart Column */}
-        <div className="lg:col-span-7 rounded-2xl bg-white border border-slate-200 p-6">
+        <div className="rounded-2xl bg-white border border-slate-200 p-6">
           <div className="mb-4">
             <h3 className="text-sm font-bold text-slate-900">
-              5 Keluhan Terbanyak Bulan Ini
+              5 Keluhan Terbanyak
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Statistik keluhan kesehatan siswa yang paling sering tercatat
+              Periode: {periodLabel}
             </p>
           </div>
 
-          <div className="h-[260px] w-full flex items-center justify-center">
+          <div className="h-[220px] w-full flex items-center justify-center">
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={40} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
                   <Tooltip
                     cursor={{ fill: 'rgba(16,185,129,0.06)' }}
@@ -158,13 +253,165 @@ export default function Dashboard() {
             ) : (
               <div className="text-center text-slate-400 space-y-2">
                 <Inbox className="w-8 h-8 mx-auto opacity-40" />
-                <p className="text-xs">Belum ada data keluhan tercatat bulan ini</p>
+                <p className="text-xs">Belum ada data keluhan pada periode ini</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Recent Activity Column */}
+        <div className="rounded-2xl bg-white border border-slate-200 p-6">
+          <div className="mb-4">
+            <h3 className="text-sm font-bold text-slate-900">
+              Siswa Paling Sering ke UKS
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Periode: {periodLabel}
+            </p>
+          </div>
+
+          <div className="h-[220px] w-full flex items-center justify-center">
+            {siswaBarData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={siswaBarData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 10, fill: '#64748B' }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval={0}
+                    angle={-35}
+                    textAnchor="end"
+                    height={50}
+                  />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(139,92,246,0.06)' }}
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '10px',
+                      color: '#1E293B',
+                      fontSize: '12px'
+                    }}
+                    formatter={(val) => [`${val} kunjungan`, 'Jumlah']}
+                  />
+                  <Bar dataKey="total" fill="#8B5CF6" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-center text-slate-400 space-y-2">
+                <Inbox className="w-8 h-8 mx-auto opacity-40" />
+                <p className="text-xs">Belum ada data kunjungan siswa pada periode ini</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-white border border-slate-200 p-6">
+          <div className="mb-4">
+            <h3 className="text-sm font-bold text-slate-900">
+              Proporsi Kunjungan per Kelas
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Periode: {periodLabel}
+            </p>
+          </div>
+
+          <div className="h-[220px] w-full flex items-center justify-center">
+            {kelasPieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={kelasPieData}
+                    dataKey="total"
+                    nameKey="name"
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={45}
+                    outerRadius={70}
+                    paddingAngle={2}
+                    label={({ total }) =>
+                      totalKunjungan > 0 ? `${Math.round((total / totalKunjungan) * 100)}%` : ''
+                    }
+                    labelLine={false}
+                  >
+                    {kelasPieData.map((_, idx) => (
+                      <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '10px',
+                      color: '#1E293B',
+                      fontSize: '12px'
+                    }}
+                    formatter={(val, name) => [
+                      `${val} kunjungan (${totalKunjungan > 0 ? Math.round((val / totalKunjungan) * 100) : 0}%)`,
+                      name
+                    ]}
+                  />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={36}
+                    wrapperStyle={{ fontSize: '11px' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-center text-slate-400 space-y-2">
+                <Inbox className="w-8 h-8 mx-auto opacity-40" />
+                <p className="text-xs">Belum ada data kunjungan pada periode ini</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Tren Mingguan & Aktivitas Terkini */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <div className="lg:col-span-7 rounded-2xl bg-white border border-slate-200 p-6">
+          <div className="mb-4">
+            <h3 className="text-sm font-bold text-slate-900">
+              Tren Kunjungan 7 Hari Terakhir
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Jumlah siswa yang berkunjung ke UKS per hari
+            </p>
+          </div>
+
+          <div className="h-[260px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={weeklyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke="#F1F5F9" />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  cursor={{ stroke: '#10B981', strokeWidth: 1, strokeDasharray: '4 4' }}
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '10px',
+                    color: '#1E293B',
+                    fontSize: '12px'
+                  }}
+                  formatter={(val) => [`${val} siswa`, 'Kunjungan']}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="total"
+                  stroke="#10B981"
+                  strokeWidth={2.5}
+                  dot={{ fill: '#10B981', r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
         <div className="lg:col-span-5 rounded-2xl bg-white border border-slate-200 p-6 flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -228,51 +475,10 @@ export default function Dashboard() {
             ) : (
               <div className="text-center py-10 text-slate-400 space-y-2">
                 <Inbox className="w-8 h-8 mx-auto opacity-40" />
-                <p className="text-xs">Belum ada kunjungan siswa tercatat</p>
+                <p className="text-xs">Belum ada kunjungan siswa tercatat pada periode ini</p>
               </div>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Tren Kunjungan Mingguan */}
-      <div className="rounded-2xl bg-white border border-slate-200 p-6">
-        <div className="mb-4">
-          <h3 className="text-sm font-bold text-slate-900">
-            Tren Kunjungan 7 Hari Terakhir
-          </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Jumlah siswa yang berkunjung ke UKS per hari
-          </p>
-        </div>
-
-        <div className="h-[220px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={weeklyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke="#F1F5F9" />
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
-              <Tooltip
-                cursor={{ stroke: '#10B981', strokeWidth: 1, strokeDasharray: '4 4' }}
-                contentStyle={{
-                  backgroundColor: '#fff',
-                  border: '1px solid #E2E8F0',
-                  borderRadius: '10px',
-                  color: '#1E293B',
-                  fontSize: '12px'
-                }}
-                formatter={(val) => [`${val} siswa`, 'Kunjungan']}
-              />
-              <Line
-                type="monotone"
-                dataKey="total"
-                stroke="#10B981"
-                strokeWidth={2.5}
-                dot={{ fill: '#10B981', r: 4 }}
-                activeDot={{ r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
-import { useRef } from 'react'
-import { Printer, Download, FileText } from 'lucide-react'
-import html2pdf from 'html2pdf.js'
+import { useRef, useState } from 'react'
+import { Printer, Download, FileText, Loader2 } from 'lucide-react'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas-pro'
 import { formatTanggal, formatTanggalWaktu } from '../../utils/formatters'
 import { useToast } from './Toast'
 
@@ -8,13 +9,12 @@ export default function PrintReportTemplate({
   title = 'LAPORAN REKAPITULASI KESEHATAN UKS',
   periodeLabel = 'Juli 2026',
   dataKunjungan = [],
-  petugasName = 'Ibu Siti Rahmawati',
-  petugasNip = '198507152010012003',
-  kepalaSekolah = 'Bapak Ahmad Fauzi, S.Pd.',
-  kepalaNip = '197508122005011002'
+  kepalaSekolah = 'Muswar Dedi, S.Pd',
+  kepalaNip = '198510082010011013'
 }) {
   const toast = useToast()
   const printRef = useRef(null)
+  const [isGenerating, setIsGenerating] = useState(false)
 
   const todayStr = formatTanggal(new Date().toISOString())
 
@@ -26,30 +26,61 @@ export default function PrintReportTemplate({
   const totalWali = dataKunjungan.filter((k) => k.status === 'Dijemput Wali').length
   const totalRujuk = dataKunjungan.filter((k) => k.status === 'Dirujuk ke Klinik').length
 
-  // Trigger Direct PDF Download via html2pdf.js
-  const handleDownloadPDF = () => {
+  // Trigger Direct PDF Download via jspdf + html2canvas-pro (mendukung warna oklch Tailwind terbaru)
+  const handleDownloadPDF = async () => {
+    if (isGenerating) return
+    setIsGenerating(true)
     toast.info('Meng-generate file PDF resmi...')
 
-    const element = printRef.current
-    const opt = {
-      margin: [10, 12, 12, 12],
-      filename: `Laporan_UKS_SDN05_${periodeLabel.replace(/\s+/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    }
+    // Beri jeda 1 frame agar UI (spinner/disable button) sempat ter-render sebelum proses berat berjalan
+    await new Promise((resolve) => setTimeout(resolve, 50))
 
-    html2pdf()
-      .set(opt)
-      .from(element)
-      .save()
-      .then(() => {
-        toast.success('File PDF berhasil diunduh!')
+    try {
+      const element = printRef.current
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false
       })
-      .catch((err) => {
-        console.error('PDF generation error:', err)
-        toast.error('Gagal meng-generate file PDF.')
-      })
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.98)
+
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const marginX = 12
+      const marginY = 10
+      const usableWidth = pageWidth - marginX * 2
+      const usableHeight = pageHeight - marginY * 2
+
+      const imgWidth = usableWidth
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+      let heightLeft = imgHeight
+      let position = marginY
+
+      // Halaman pertama
+      pdf.addImage(imgData, 'JPEG', marginX, position, imgWidth, imgHeight)
+      heightLeft -= usableHeight
+
+      // Tambahkan halaman berikutnya jika konten lebih panjang dari 1 halaman A4
+      while (heightLeft > 0) {
+        position -= usableHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'JPEG', marginX, position + marginY, imgWidth, imgHeight)
+        heightLeft -= usableHeight
+      }
+
+      const safeFileName = periodeLabel.replace(/[\/\s]+/g, '_')
+      pdf.save(`Laporan_UKS_SDN05_${safeFileName}.pdf`)
+
+      toast.success('File PDF berhasil diunduh!')
+    } catch (err) {
+      console.error('PDF generation error:', err)
+      toast.error('Gagal meng-generate file PDF. Coba periksa console untuk detail error.')
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   // Trigger Browser Print Dialog
@@ -60,36 +91,42 @@ export default function PrintReportTemplate({
   return (
     <div className="space-y-4">
       {/* Interactive Action Bar (Hidden when printing) */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl backdrop-blur-md no-print">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm no-print">
         <div className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-emerald-400" />
-          <span className="text-xs font-bold text-white">Ekspor Laporan Resmi (Format PDF & Cetak)</span>
+          <FileText className="w-5 h-5 text-emerald-600" />
+          <span className="text-xs font-bold text-slate-800">Ekspor Laporan Resmi (Format PDF & Cetak)</span>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={handleDownloadPDF}
+            disabled={isGenerating}
             className="
-              inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
-              bg-emerald-600 hover:bg-emerald-500 text-white
-              font-extrabold text-xs transition-all duration-200 shadow-lg shadow-emerald-950/50 cursor-pointer border border-emerald-400/30
+              inline-flex items-center gap-2 px-4 py-2.5 rounded-lg
+              bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white
+              font-semibold text-xs transition-colors duration-200 cursor-pointer disabled:cursor-not-allowed
             "
           >
-            <Download className="w-4 h-4" />
-            <span>Unduh File PDF (.pdf)</span>
+            {isGenerating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span>{isGenerating ? 'Memproses PDF...' : 'Unduh File PDF (.pdf)'}</span>
           </button>
 
           <button
             type="button"
             onClick={handlePrintView}
+            disabled={isGenerating}
             className="
-              inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
-              bg-slate-800 hover:bg-slate-700 text-slate-200
-              font-bold text-xs transition-all duration-200 shadow-md cursor-pointer border border-slate-700
+              inline-flex items-center gap-2 px-4 py-2.5 rounded-lg
+              bg-white hover:bg-slate-50 disabled:opacity-50 text-slate-700
+              font-semibold text-xs transition-colors duration-200 cursor-pointer disabled:cursor-not-allowed border border-slate-200
             "
           >
-            <Printer className="w-4 h-4 text-emerald-400" />
+            <Printer className="w-4 h-4 text-emerald-600" />
             <span>Cetak Layout A4</span>
           </button>
         </div>
@@ -192,30 +229,18 @@ export default function PrintReportTemplate({
             </table>
           </div>
 
-          {/* Official Signatures Block (Tanda Tangan & Pengesahan) */}
+          {/* Official Signature Block (Tanda Tangan & Pengesahan) — hanya Kepala Sekolah */}
           <div className="pt-6 font-sans text-xs">
-            <div className="grid grid-cols-2 gap-8 text-center">
-              {/* Left Column: Kepala Sekolah */}
-              <div className="space-y-16">
+            <div className="flex justify-end text-center">
+              <div className="space-y-16 w-64">
                 <div>
-                  <p className="font-semibold">Mengetahui,</p>
+                  <p className="font-semibold">Parambahan, {todayStr}</p>
+                  <p className="font-bold">Mengetahui,</p>
                   <p className="font-bold">Kepala SD Negeri 05 Parambahan</p>
                 </div>
                 <div>
                   <p className="font-bold underline text-sm">{kepalaSekolah}</p>
                   <p className="text-[11px] font-mono text-slate-700">NIP. {kepalaNip}</p>
-                </div>
-              </div>
-
-              {/* Right Column: Petugas UKS Utama */}
-              <div className="space-y-16">
-                <div>
-                  <p className="font-semibold">Parambahan, {todayStr}</p>
-                  <p className="font-bold">Petugas UKS Utama</p>
-                </div>
-                <div>
-                  <p className="font-bold underline text-sm">{petugasName}</p>
-                  <p className="text-[11px] font-mono text-slate-700">NIP. {petugasNip}</p>
                 </div>
               </div>
             </div>

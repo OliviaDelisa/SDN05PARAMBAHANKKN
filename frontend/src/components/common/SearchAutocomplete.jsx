@@ -86,17 +86,17 @@ export default function SearchAutocomplete({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className="
-            w-full pl-10 pr-10 py-3 rounded-xl
-            border border-slate-800 bg-slate-950/80 text-sm text-white
-            placeholder:text-slate-500
-            focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500
-            transition-all duration-200 shadow-inner
+            w-full pl-10 pr-10 py-2.5 rounded-lg
+            border border-slate-200 bg-white text-sm text-slate-800
+            placeholder:text-slate-400
+            focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400
+            transition-colors
           "
         />
         {query && (
           <button
             onClick={clearInput}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-white"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100"
           >
             <X className="w-4 h-4" />
           </button>
@@ -109,8 +109,8 @@ export default function SearchAutocomplete({
           ref={listRef}
           className="
             absolute z-30 left-0 right-0 mt-2
-            bg-slate-900 border border-slate-800 rounded-xl
-            shadow-2xl max-h-[300px] overflow-y-auto backdrop-blur-xl p-1.5 space-y-1
+            bg-white border border-slate-200 rounded-lg
+            shadow-lg max-h-[300px] overflow-y-auto p-1.5 space-y-1
           "
         >
           {filtered.map((item, idx) => {
@@ -125,25 +125,25 @@ export default function SearchAutocomplete({
                 className={`
                   w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm
                   transition-colors duration-150 cursor-pointer
-                  ${highlighted === idx ? 'bg-emerald-600/20 text-white border border-emerald-500/30' : 'hover:bg-slate-800 text-slate-200'}
+                  ${highlighted === idx ? 'bg-emerald-50 text-slate-900 border border-emerald-200' : 'hover:bg-slate-50 text-slate-700 border border-transparent'}
                 `}
               >
                 <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-md"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                   style={{ backgroundColor: color }}
                 >
                   {initial}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="font-bold text-white truncate">
+                  <div className="font-semibold text-slate-900 truncate">
                     {item[displayKey]}
                   </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
+                  <div className="text-[11px] text-slate-500 font-mono">
                     NIS: {item[subtitleKey]}
                   </div>
                 </div>
                 {item[badgeKey] && (
-                  <span className="text-[11px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md shrink-0">
+                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md shrink-0">
                     {item[badgeKey]}
                   </span>
                 )}

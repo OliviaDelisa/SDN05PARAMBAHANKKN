@@ -11,11 +11,10 @@ export default function CustomSelect({
   className = ''
 }) {
   const [isOpen, setIsOpen] = useState(false)
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 })
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, openUpward: false })
   const buttonRef = useRef(null)
   const menuRef = useRef(null)
 
-  // Normalize options array: handles array of strings or array of { value, label }
   const normalizedOptions = options.map((opt) => {
     if (typeof opt === 'object' && opt !== null) {
       return opt
@@ -23,18 +22,25 @@ export default function CustomSelect({
     return { value: opt, label: opt }
   })
 
-  // Selected option label
   const selectedOption = normalizedOptions.find((opt) => String(opt.value) === String(value))
   const displayLabel = selectedOption ? selectedOption.label : placeholder
 
-  // Update position relative to window on open / scroll / resize
+  const MENU_MAX_HEIGHT = 260
+
   const updatePosition = () => {
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+      const openUpward = spaceBelow < MENU_MAX_HEIGHT && spaceAbove > spaceBelow
+
       setCoords({
-        top: rect.bottom + window.scrollY + 6,
+        top: openUpward
+          ? rect.top + window.scrollY - 6
+          : rect.bottom + window.scrollY + 6,
         left: rect.left + window.scrollX,
-        width: Math.max(rect.width, 180)
+        width: Math.max(rect.width, 180),
+        openUpward
       })
     }
   }
@@ -46,7 +52,6 @@ export default function CustomSelect({
     setIsOpen(!isOpen)
   }
 
-  // Close dropdown on outside click or window resize/scroll
   useEffect(() => {
     function handleClickOutside(e) {
       if (
@@ -83,33 +88,31 @@ export default function CustomSelect({
 
   return (
     <div className={`relative ${className}`}>
-      {/* Trigger Button */}
       <button
         ref={buttonRef}
         type="button"
         onClick={handleToggle}
         className={`
-          w-full flex items-center justify-between px-4 py-2.5 rounded-xl
-          border bg-slate-950/90 text-xs font-bold text-white
-          transition-all duration-200 cursor-pointer shadow-inner
+          w-full flex items-center justify-between px-3 py-2.5 rounded-lg
+          border bg-white text-sm font-medium text-slate-800
+          transition-colors cursor-pointer
           ${isOpen
-            ? 'border-emerald-500 ring-2 ring-emerald-500/30 text-white'
-            : 'border-slate-800 hover:border-slate-700 text-slate-200'
+            ? 'border-emerald-400 ring-2 ring-emerald-200'
+            : 'border-slate-200 hover:border-slate-300'
           }
         `}
       >
         <div className="flex items-center gap-2 min-w-0">
-          {Icon && <Icon className="w-4 h-4 text-emerald-400 shrink-0" />}
+          {Icon && <Icon className="w-4 h-4 text-emerald-600 shrink-0" />}
           <span className="truncate">{displayLabel}</span>
         </div>
         <ChevronDown
           className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${
-            isOpen ? 'rotate-180 text-emerald-400' : ''
+            isOpen ? 'rotate-180 text-emerald-600' : ''
           }`}
         />
       </button>
 
-      {/* Floating Custom Dropdown List Rendered in React Portal to body (never clipped by parent overflow) */}
       {isOpen &&
         createPortal(
           <div
@@ -119,12 +122,13 @@ export default function CustomSelect({
               top: `${coords.top}px`,
               left: `${coords.left}px`,
               width: `${coords.width}px`,
+              transform: coords.openUpward ? 'translateY(-100%)' : 'none',
               zIndex: 99999
             }}
             className="
-              bg-slate-900 border border-slate-700 rounded-xl
-              shadow-2xl max-h-[260px] overflow-y-auto backdrop-blur-2xl p-1.5 space-y-1
-              animate-modal-in text-xs
+              bg-white border border-slate-200 rounded-lg
+              shadow-lg max-h-[260px] overflow-y-auto p-1.5 space-y-1
+              text-sm
             "
           >
             {normalizedOptions.map((opt) => {
@@ -136,16 +140,16 @@ export default function CustomSelect({
                   type="button"
                   onClick={() => handleSelect(opt.value)}
                   className={`
-                    w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left font-semibold
-                    transition-all duration-150 cursor-pointer
+                    w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left font-medium
+                    transition-colors cursor-pointer
                     ${isSelected
-                      ? 'bg-emerald-600/25 text-emerald-300 border border-emerald-500/40 font-bold shadow-sm'
-                      : 'text-slate-200 hover:bg-slate-800 hover:text-white border border-transparent'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'text-slate-700 hover:bg-slate-50 border border-transparent'
                     }
                   `}
                 >
                   <span className="truncate">{opt.label}</span>
-                  {isSelected && <Check className="w-4 h-4 text-emerald-400 shrink-0 ml-2" />}
+                  {isSelected && <Check className="w-4 h-4 text-emerald-600 shrink-0 ml-2" />}
                 </button>
               )
             })}

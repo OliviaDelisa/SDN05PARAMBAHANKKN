@@ -14,7 +14,10 @@ export default function AppLayout() {
         <Topbar onToggleSidebar={() => setSidebarOpen((v) => !v)} />
 
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-6 lg:py-10">
+          <div className={`
+            mx-auto px-4 sm:px-6 lg:px-10 py-6 lg:py-10 transition-all duration-300
+            ${sidebarOpen ? 'max-w-[1400px]' : 'max-w-[1800px]'}
+          `}>
             <Outlet />
           </div>
         </main>

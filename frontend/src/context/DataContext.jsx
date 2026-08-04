@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { api } from '../utils/api'
 
 const DataContext = createContext(null)
@@ -22,6 +22,7 @@ export function DataProvider({ children }) {
   // Start with 100% empty state [] so user MUST add students & visits first
   const [siswaList, setSiswaList] = useState([])
   const [kunjunganList, setKunjunganList] = useState([])
+  const hasLocalChanges = useRef(false)
 
   // Sync with Express REST API backend on mount
   useEffect(() => {
@@ -29,23 +30,27 @@ export function DataProvider({ children }) {
       try {
         if (api && api.siswa && typeof api.siswa.getAll === 'function') {
           const siswaRes = await api.siswa.getAll()
-          if (siswaRes && Array.isArray(siswaRes.data)) {
-            setSiswaList(siswaRes.data)
-            localStorage.setItem(STORAGE_KEYS.SISWA, JSON.stringify(siswaRes.data))
-          } else {
-            setSiswaList([])
-            localStorage.setItem(STORAGE_KEYS.SISWA, JSON.stringify([]))
+          if (!hasLocalChanges.current) {
+            if (siswaRes && Array.isArray(siswaRes.data)) {
+              setSiswaList(siswaRes.data)
+              localStorage.setItem(STORAGE_KEYS.SISWA, JSON.stringify(siswaRes.data))
+            } else {
+              setSiswaList([])
+              localStorage.setItem(STORAGE_KEYS.SISWA, JSON.stringify([]))
+            }
           }
         }
 
         if (api && api.kunjungan && typeof api.kunjungan.getAll === 'function') {
           const kunjunganRes = await api.kunjungan.getAll()
-          if (kunjunganRes && Array.isArray(kunjunganRes.data)) {
-            setKunjunganList(kunjunganRes.data)
-            localStorage.setItem(STORAGE_KEYS.KUNJUNGAN, JSON.stringify(kunjunganRes.data))
-          } else {
-            setKunjunganList([])
-            localStorage.setItem(STORAGE_KEYS.KUNJUNGAN, JSON.stringify([]))
+          if (!hasLocalChanges.current) {
+            if (kunjunganRes && Array.isArray(kunjunganRes.data)) {
+              setKunjunganList(kunjunganRes.data)
+              localStorage.setItem(STORAGE_KEYS.KUNJUNGAN, JSON.stringify(kunjunganRes.data))
+            } else {
+              setKunjunganList([])
+              localStorage.setItem(STORAGE_KEYS.KUNJUNGAN, JSON.stringify([]))
+            }
           }
         }
       } catch (err) {
@@ -71,6 +76,8 @@ export function DataProvider({ children }) {
 
   // Actions for Siswa
   const addSiswa = async (siswaData) => {
+    hasLocalChanges.current = true
+
     const newSiswa = {
       id: siswaData.id || Date.now(),
       ...siswaData
@@ -81,13 +88,15 @@ export function DataProvider({ children }) {
     try {
       if (api && api.siswa) await api.siswa.create(newSiswa)
     } catch (err) {
-      // Saved in local state
+      console.error('Gagal menyimpan siswa ke backend:', err)
     }
 
     return newSiswa
   }
 
   const updateSiswa = async (id, updatedData) => {
+    hasLocalChanges.current = true
+
     setSiswaList((prev) =>
       prev.map((s) => (s.id === id ? { ...s, ...updatedData } : s))
     )
@@ -95,22 +104,26 @@ export function DataProvider({ children }) {
     try {
       if (api && api.siswa) await api.siswa.update(id, updatedData)
     } catch (err) {
-      // Updated in local state
+      console.error('Gagal memperbarui siswa di backend:', err)
     }
   }
 
   const deleteSiswa = async (id) => {
+    hasLocalChanges.current = true
+
     setSiswaList((prev) => prev.filter((s) => s.id !== id))
 
     try {
       if (api && api.siswa) await api.siswa.delete(id)
     } catch (err) {
-      // Removed from local state
+      console.error('Gagal menghapus siswa di backend:', err)
     }
   }
 
   // Actions for Kunjungan
   const addKunjungan = async (kunjunganData) => {
+    hasLocalChanges.current = true
+
     const newKunjungan = {
       id: kunjunganData.id || Date.now(),
       ...kunjunganData
@@ -121,19 +134,21 @@ export function DataProvider({ children }) {
     try {
       if (api && api.kunjungan) await api.kunjungan.create(newKunjungan)
     } catch (err) {
-      // Saved in local state
+      console.error('Gagal menyimpan kunjungan ke backend:', err)
     }
 
     return newKunjungan
   }
 
   const deleteKunjungan = async (id) => {
+    hasLocalChanges.current = true
+
     setKunjunganList((prev) => prev.filter((k) => k.id !== id))
 
     try {
       if (api && api.kunjungan) await api.kunjungan.delete(id)
     } catch (err) {
-      // Removed from local state
+      console.error('Gagal menghapus kunjungan di backend:', err)
     }
   }
 
