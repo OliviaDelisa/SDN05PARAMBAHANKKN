@@ -5,7 +5,7 @@ import {
   History,
   Users,
   BarChart3,
-  Settings,
+  Info,
   LogOut
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -15,8 +15,7 @@ const menuItems = [
   { path: '/pendaftaran', icon: ClipboardPlus, label: 'Pendaftaran Kunjungan' },
   { path: '/riwayat', icon: History, label: 'Riwayat Kunjungan' },
   { path: '/siswa', icon: Users, label: 'Data Siswa' },
-  { path: '/laporan', icon: BarChart3, label: 'Laporan & Analitik' },
-  { path: '/pengaturan', icon: Settings, label: 'Pengaturan' }
+  { path: '/pengaturan', icon: Info, label: 'Info' }
 ]
 
 // Breakpoint 'lg' Tailwind (harus sama dengan breakpoint yang dipakai di className lg:hidden / lg:block)

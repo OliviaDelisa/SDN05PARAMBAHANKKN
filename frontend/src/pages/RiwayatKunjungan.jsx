@@ -41,7 +41,7 @@ export default function RiwayatKunjungan() {
 
   // Options formatted for CustomSelect
   const kelasSelectOptions = [
-    { value: '', label: 'Semua Kelas (1 - 6)' },
+    { value: '', label: 'Semua Kelas' },
     ...kelasOptions.map((k) => ({ value: k, label: `Kelas ${k}` }))
   ]
 
@@ -168,15 +168,15 @@ export default function RiwayatKunjungan() {
               {initial}
             </div>
             <div>
-              <div className="font-bold text-slate-900 flex items-center gap-2">
-                <span>{row.siswa_nama}</span>
-                {row.is_darurat && (
-                  <span className="text-[10px] font-black text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.2 rounded">
-                    DARURAT
-                  </span>
-                )}
+              <div className="font-bold text-slate-900">
+                {row.siswa_nama}
               </div>
-              <div className="text-[11px] text-slate-400 font-mono">NIS: {row.siswa_nis}</div>
+              <div className="text-[11px] text-slate-400 font-mono mt-0.5">NIS: {row.siswa_nis}</div>
+              {row.is_darurat && (
+                <span className="inline-block mt-1 text-[10px] font-black text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.2 rounded">
+                  DARURAT
+                </span>
+              )}
             </div>
           </div>
         )

@@ -40,6 +40,8 @@ const PERIOD_OPTIONS = [
   { value: 'semua', label: 'Semua' }
 ]
 
+const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+
 // Menghitung batas awal tanggal berdasarkan periode yang dipilih
 function getPeriodStart(period) {
   const now = new Date()
@@ -59,6 +61,99 @@ function getPeriodStart(period) {
       return new Date(now.getFullYear(), 0, 1)
     default:
       return null // 'semua' -> tidak difilter
+  }
+}
+
+// Menghasilkan data tren kunjungan mengikuti periode yang dipilih.
+// - harian  -> tren per jam (hari ini)
+// - mingguan -> tren per hari (Senin-Minggu minggu ini)
+// - bulanan -> tren per hari (dalam bulan berjalan)
+// - tahunan -> tren per bulan (Jan-Des tahun berjalan)
+// - semua   -> tren per tahun (dari data paling lama sampai paling baru)
+function getTrendData(period, kunjunganList) {
+  const now = new Date()
+
+  if (period === 'harian' || period === 'mingguan') {
+    const day = now.getDay()
+    const diffToMonday = day === 0 ? 6 : day - 1
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday)
+
+    return Array.from({ length: 7 }).map((_, i) => {
+      const date = new Date(monday)
+      date.setDate(monday.getDate() + i)
+      const dateStr = date.toISOString().split('T')[0]
+      const label = date.toLocaleDateString('id-ID', { weekday: 'short' })
+      const total = kunjunganList.filter((k) => k.waktu_masuk?.startsWith(dateStr)).length
+      return { name: label, total }
+    })
+  }
+
+  if (period === 'bulanan') {
+    const year = now.getFullYear()
+    const month = now.getMonth()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+    return Array.from({ length: daysInMonth }).map((_, i) => {
+      const dayNum = i + 1
+      const date = new Date(year, month, dayNum)
+      const dateStr = date.toISOString().split('T')[0]
+      const total = kunjunganList.filter((k) => k.waktu_masuk?.startsWith(dateStr)).length
+      return { name: String(dayNum), total }
+    })
+  }
+
+  if (period === 'tahunan') {
+    const year = now.getFullYear()
+    return Array.from({ length: 12 }).map((_, m) => {
+      const total = kunjunganList.filter((k) => {
+        if (!k.waktu_masuk) return false
+        const d = new Date(k.waktu_masuk)
+        return d.getFullYear() === year && d.getMonth() === m
+      }).length
+      return { name: MONTH_NAMES_SHORT[m], total }
+    })
+  }
+
+  // 'semua' -> tren per tahun
+  const years = kunjunganList
+    .map((k) => (k.waktu_masuk ? new Date(k.waktu_masuk).getFullYear() : null))
+    .filter((y) => y && !Number.isNaN(y))
+
+  if (years.length === 0) return []
+
+  const minYear = Math.min(...years)
+  const maxYear = Math.max(...years)
+  const result = []
+  for (let y = minYear; y <= maxYear; y++) {
+    const total = kunjunganList.filter(
+      (k) => k.waktu_masuk && new Date(k.waktu_masuk).getFullYear() === y
+    ).length
+    result.push({ name: String(y), total })
+  }
+  return result
+}
+
+// Judul & subjudul chart tren, menyesuaikan periode
+const TREND_META = {
+  harian: {
+    title: 'Tren Kunjungan Per Hari',
+    subtitle: 'Jumlah kunjungan ke UKS per hari, minggu ini (Sen-Min)'
+  },
+  mingguan: {
+    title: 'Tren Kunjungan Per Hari',
+    subtitle: 'Jumlah kunjungan ke UKS per hari, minggu ini (Sen-Min)'
+  },
+  bulanan: {
+    title: 'Tren Kunjungan Per Hari',
+    subtitle: 'Jumlah kunjungan ke UKS per hari, bulan ini'
+  },
+  tahunan: {
+    title: 'Tren Kunjungan Per Bulan',
+    subtitle: 'Jumlah kunjungan ke UKS per bulan, tahun ini'
+  },
+  semua: {
+    title: 'Tren Kunjungan Per Tahun',
+    subtitle: 'Jumlah kunjungan ke UKS per tahun, seluruh data'
   }
 }
 
@@ -133,15 +228,16 @@ export default function Dashboard() {
     total: item.total
   }))
 
-  // Tren kunjungan 7 hari terakhir (fixed, tidak mengikuti filter periode)
-  const weeklyTrend = Array.from({ length: 7 }).map((_, i) => {
-    const date = new Date()
-    date.setDate(date.getDate() - (6 - i))
-    const dateStr = date.toISOString().split('T')[0]
-    const label = date.toLocaleDateString('id-ID', { weekday: 'short' })
-    const total = kunjunganList.filter((k) => k.waktu_masuk?.startsWith(dateStr)).length
-    return { name: label, total }
-  })
+  // Tren kunjungan, bentuknya menyesuaikan periode yang dipilih
+  // (harian -> per jam, mingguan -> per hari, bulanan -> per hari,
+  //  tahunan -> per bulan, semua -> per tahun). TIDAK mengikuti filteredKunjungan,
+  // karena tren butuh rentang waktu sendiri (mis. 24 jam / 12 bulan), bukan hasil filter.
+  const trendData = useMemo(() => getTrendData(period, kunjunganList), [period, kunjunganList])
+  const trendMeta = TREND_META[period] || TREND_META.harian
+
+  // Supaya label sumbu-X tidak terlalu padat saat datanya banyak (mis. 24 jam / 31 hari)
+  const trendXAxisInterval =
+    trendData.length > 15 ? Math.ceil(trendData.length / 10) - 1 : 0
 
   const getStatusVariant = (status) => {
     switch (status) {
@@ -369,46 +465,59 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Tren Mingguan & Aktivitas Terkini */}
+      {/* Tren Kunjungan & Aktivitas Terkini */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
         <div className="lg:col-span-7 rounded-2xl bg-white border border-slate-200 p-6">
           <div className="mb-4">
             <h3 className="text-sm font-bold text-slate-900">
-              Tren Kunjungan 7 Hari Terakhir
+              {trendMeta.title}
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Jumlah siswa yang berkunjung ke UKS per hari
+              {trendMeta.subtitle}
             </p>
           </div>
 
-          <div className="h-[260px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={weeklyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="#F1F5F9" />
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  cursor={{ stroke: '#10B981', strokeWidth: 1, strokeDasharray: '4 4' }}
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #E2E8F0',
-                    borderRadius: '10px',
-                    color: '#1E293B',
-                    fontSize: '12px'
-                  }}
-                  formatter={(val) => [`${val} siswa`, 'Kunjungan']}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="total"
-                  stroke="#10B981"
-                  strokeWidth={2.5}
-                  dot={{ fill: '#10B981', r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="h-[260px] w-full flex items-center justify-center">
+            {trendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid vertical={false} stroke="#F1F5F9" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 12, fill: '#64748B' }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval={trendXAxisInterval}
+                  />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ stroke: '#10B981', strokeWidth: 1, strokeDasharray: '4 4' }}
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '10px',
+                      color: '#1E293B',
+                      fontSize: '12px'
+                    }}
+                    formatter={(val) => [`${val} siswa`, 'Kunjungan']}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    stroke="#10B981"
+                    strokeWidth={2.5}
+                    dot={{ fill: '#10B981', r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-center text-slate-400 space-y-2">
+                <Inbox className="w-8 h-8 mx-auto opacity-40" />
+                <p className="text-xs">Belum ada data untuk ditampilkan pada periode ini</p>
+              </div>
+            )}
           </div>
         </div>
 

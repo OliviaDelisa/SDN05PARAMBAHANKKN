@@ -16,43 +16,56 @@ import { useData } from '../context/DataContext'
 import { keluhanOptions, tindakanOptions, statusOptions } from '../data/mockData'
 import { getInitials, getInitialColor } from '../utils/formatters'
 
+function getDefaultWaktuMasuk() {
+  const now = new Date()
+  const tzoffset = now.getTimezoneOffset() * 60000
+  return new Date(Date.now() - tzoffset).toISOString().slice(0, 16)
+}
+
 export default function PendaftaranKunjungan() {
   const toast = useToast()
   const { siswaList, addKunjungan } = useData()
 
   // Form State
   const [selectedSiswa, setSelectedSiswa] = useState(null)
-  const [waktuMasuk, setWaktuMasuk] = useState(() => {
-    const now = new Date()
-    const tzoffset = now.getTimezoneOffset() * 60000
-    return new Date(Date.now() - tzoffset).toISOString().slice(0, 16)
-  })
+  const [waktuMasuk, setWaktuMasuk] = useState(getDefaultWaktuMasuk)
   const [selectedKeluhan, setSelectedKeluhan] = useState([])
   const [keterangan, setKeterangan] = useState('')
   const [isDarurat, setIsDarurat] = useState(false)
   const [selectedTindakan, setSelectedTindakan] = useState([])
   const [status, setStatus] = useState('Istirahat di UKS')
 
+  // Kunci dipakai untuk paksa SearchAutocomplete (dan komponen lain yang
+  // menyimpan state internal sendiri) reset total setelah form dikosongkan
+  const [formKey, setFormKey] = useState(0)
+
   // Success State
   const [successData, setSuccessData] = useState(null)
 
+  // Mengosongkan semua field form (tidak menyentuh successData)
+  const clearForm = () => {
+    setSelectedSiswa(null)
+    setWaktuMasuk(getDefaultWaktuMasuk())
+    setSelectedKeluhan([])
+    setKeterangan('')
+    setIsDarurat(false)
+    setSelectedTindakan([])
+    setStatus('Istirahat di UKS')
+    setFormKey((k) => k + 1)
+  }
+
   const handleSubmit = async (e) => {
-  e.preventDefault()
+    e.preventDefault()
 
-  console.log('selectedSiswa:', selectedSiswa)
-  console.log('selectedKeluhan:', selectedKeluhan)
-  console.log('keterangan:', JSON.stringify(keterangan))
+    if (!selectedSiswa) {
+      toast.error('Silakan cari dan pilih siswa terlebih dahulu!')
+      return
+    }
 
-  if (!selectedSiswa) {
-    toast.error('Silakan cari dan pilih siswa terlebih dahulu!')
-    return
-  }
-
-  if (selectedKeluhan.length === 0 && !keterangan) {
-    toast.error('Pilih minimal satu keluhan atau isi keterangan!')
-    return
-  }
-    
+    if (selectedKeluhan.length === 0 && !keterangan) {
+      toast.error('Pilih minimal satu keluhan atau isi keterangan!')
+      return
+    }
 
     const newRecord = {
       id: Date.now(),
@@ -71,15 +84,13 @@ export default function PendaftaranKunjungan() {
     await addKunjungan(newRecord)
     setSuccessData(newRecord)
     toast.success(`Kunjungan ${selectedSiswa.nama} berhasil disimpan!`)
+
+    // Form otomatis dikosongkan lagi begitu berhasil disimpan
+    clearForm()
   }
 
   const handleReset = () => {
-    setSelectedSiswa(null)
-    setSelectedKeluhan([])
-    setKeterangan('')
-    setIsDarurat(false)
-    setSelectedTindakan([])
-    setStatus('Istirahat di UKS')
+    clearForm()
     setSuccessData(null)
   }
 
@@ -101,7 +112,7 @@ export default function PendaftaranKunjungan() {
             </div>
           </div>
           <button
-            onClick={handleReset}
+            onClick={() => setSuccessData(null)}
             className="px-3 py-2 rounded-lg bg-white hover:bg-emerald-100 border border-emerald-300 text-emerald-700 font-medium text-xs transition-colors flex items-center gap-1.5 shrink-0"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -110,7 +121,7 @@ export default function PendaftaranKunjungan() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start" key={formKey}>
 
         {/* Kolom kiri: form utama */}
         <div className="lg:col-span-2 space-y-5">

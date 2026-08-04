@@ -20,9 +20,6 @@ export default function TagSelector({ options, selected = [], onChange, multiple
     ? options.filter((opt) => opt.toLowerCase().includes(q))
     : options
 
-  const selectedOptions = options.filter((opt) => selected.includes(opt))
-  const unselectedFiltered = filteredOptions.filter((opt) => !selected.includes(opt))
-
   const tagClass = (isSelected) => `
     w-full px-3.5 py-2 rounded-lg text-xs font-medium text-center
     border transition-colors select-none cursor-pointer truncate
@@ -31,6 +28,37 @@ export default function TagSelector({ options, selected = [], onChange, multiple
       : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
     }
   `
+
+  // Tombol tag + tooltip yang muncul otomatis saat hover (teks lengkap,
+  // walau di tombolnya sendiri terpotong/truncate)
+  const TagButton = ({ option, isSelected }) => (
+    <div className="relative group">
+      <button
+        type="button"
+        onClick={() => handleToggle(option)}
+        title={option}
+        className={tagClass(isSelected)}
+      >
+        {option}
+      </button>
+
+      {/* Tooltip: hidden by default, muncul saat hover pada wrapper-nya */}
+      <div
+        className="
+          pointer-events-none absolute left-1/2 bottom-full -translate-x-1/2 mb-1.5 z-20
+          hidden group-hover:block
+          whitespace-normal max-w-[220px] w-max
+          bg-slate-800 text-white text-[11px] leading-snug
+          rounded-lg px-2.5 py-1.5 shadow-lg
+          opacity-0 group-hover:opacity-100 transition-opacity duration-150
+        "
+      >
+        {option}
+        {/* Panah kecil di bawah tooltip */}
+        <div className="absolute left-1/2 top-full -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-slate-800" />
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-2.5">
@@ -60,32 +88,14 @@ export default function TagSelector({ options, selected = [], onChange, multiple
         </div>
       )}
 
-      {selectedOptions.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 pb-2.5 border-b border-slate-100">
-          {selectedOptions.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => handleToggle(option)}
-              className={tagClass(true)}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-      )}
-
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-        {unselectedFiltered.length > 0 ? (
-          unselectedFiltered.map((option) => (
-            <button
+        {filteredOptions.length > 0 ? (
+          filteredOptions.map((option) => (
+            <TagButton
               key={option}
-              type="button"
-              onClick={() => handleToggle(option)}
-              className={tagClass(false)}
-            >
-              {option}
-            </button>
+              option={option}
+              isSelected={selected.includes(option)}
+            />
           ))
         ) : (
           q && (

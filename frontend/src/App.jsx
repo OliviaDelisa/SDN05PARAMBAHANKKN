@@ -9,7 +9,6 @@ import Dashboard from './pages/Dashboard'
 import PendaftaranKunjungan from './pages/PendaftaranKunjungan'
 import RiwayatKunjungan from './pages/RiwayatKunjungan'
 import DataSiswa from './pages/DataSiswa'
-import LaporanAnalitik from './pages/LaporanAnalitik'
 import Pengaturan from './pages/Pengaturan'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -68,7 +67,6 @@ export default function App() {
                 <Route path="pendaftaran" element={<PendaftaranKunjungan />} />
                 <Route path="riwayat" element={<RiwayatKunjungan />} />
                 <Route path="siswa" element={<DataSiswa />} />
-                <Route path="laporan" element={<LaporanAnalitik />} />
                 <Route path="pengaturan" element={<Pengaturan />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>

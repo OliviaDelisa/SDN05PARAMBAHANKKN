@@ -7,7 +7,6 @@ import dotenv from 'dotenv'
 import authRoutes from './routes/authRoutes.js'
 import siswaRoutes from './routes/siswaRoutes.js'
 import kunjunganRoutes from './routes/kunjunganRoutes.js'
-import laporanRoutes from './routes/laporanRoutes.js'
 import pengaturanRoutes from './routes/pengaturanRoutes.js'
 
 dotenv.config()
@@ -38,7 +37,6 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes)
 app.use('/api/siswa', siswaRoutes)
 app.use('/api/kunjungan', kunjunganRoutes)
-app.use('/api/laporan', laporanRoutes)
 app.use('/api/pengaturan', pengaturanRoutes)
 
 // 404 Handler for undefined API routes

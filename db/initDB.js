@@ -125,9 +125,9 @@ export async function initDatabase() {
     const [sekolah] = await pool.query('SELECT COUNT(*) as count FROM pengaturan_sekolah')
     if (sekolah[0].count === 0) {
       await pool.query(`
-        INSERT INTO pengaturan_sekolah (id, nama_sekolah, npsn, telepon_sekolah, kepala_sekolah, alamat)
-        VALUES (1, 'SDN 05 Parambahan', '10303456', '0751234567', 'Bapak Ahmad Fauzi, S.Pd.', 'Jl. Pendidikan No. 5, Nagari Parambahan, Kec. Bukit Sundi, Kab. Solok')
-      `)
+      INSERT INTO pengaturan_sekolah (id, nama_sekolah, npsn, telepon_sekolah, kepala_sekolah, alamat)
+      VALUES (1, 'SDN 05 Parambahan', '10301599', '0751234567', 'Muswar Dedi, S.Pd.', 'Jl. Pendidikan No. 5, Nagari Parambahan, Kec. Bukit Sundi, Kab. Solok')
+    `)
     }
 
     console.log('✅ MySQL Database Schema Fully Connected & Prepared!')
