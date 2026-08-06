@@ -21,6 +21,24 @@ const pageInfo = {
     title: 'Data Siswa',
     subtitle: 'Kelola data siswa terdaftar'
   },
+  // Rute admin. Entri yang lebih spesifik ditulis lebih dulu supaya
+  // pencocokan startsWith di getPageInfo tidak berhenti di '/admin'.
+  '/admin/siswa': {
+    title: 'Kelola Data Siswa',
+    subtitle: 'Tambah, ubah, dan hapus data induk siswa'
+  },
+  '/admin/sekolah': {
+    title: 'Identitas Sekolah',
+    subtitle: 'Data yang tercetak pada kop surat laporan'
+  },
+  '/admin/akun': {
+    title: 'Manajemen Akun',
+    subtitle: 'Kelola akun pengguna dan perannya'
+  },
+  '/admin': {
+    title: 'Panel Admin',
+    subtitle: 'Pengelolaan sistem UKS Digital'
+  },
   '/pengaturan': {
     title: 'Pengaturan',
     subtitle: 'Profil Dokcil & data sekolah'

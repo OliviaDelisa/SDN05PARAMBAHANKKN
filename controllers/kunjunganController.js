@@ -67,10 +67,13 @@ export async function createKunjungan(req, res, next) {
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO kunjungan (siswa_id, siswa_nama, siswa_nis, kelas, waktu_masuk, keluhan_utama, keterangan, is_darurat, tindakan, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO kunjungan (siswa_id, petugas_id, siswa_nama, siswa_nis, kelas, waktu_masuk, keluhan_utama, keterangan, is_darurat, tindakan, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         siswa_id || null,
+        // Jejak audit: diambil dari token hasil verifikasi, BUKAN dari body —
+        // kalau dari body, siapa pun bisa mencatat atas nama orang lain.
+        req.user.id,
         siswa_nama,
         siswa_nis,
         kelas,
@@ -86,6 +89,7 @@ export async function createKunjungan(req, res, next) {
     const newKunjungan = {
       id: result.insertId,
       siswa_id,
+      petugas_id: req.user.id,
       siswa_nama,
       siswa_nis,
       kelas,

@@ -67,27 +67,6 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const register = async (userData) => {
-    const { nama_lengkap, nip, username, password } = userData
-
-    if (!nama_lengkap || !nip || !username || !password) {
-      throw new Error('Semua kolom wajib diisi!')
-    }
-
-    const usernameError = validateUsername(username)
-    if (usernameError) throw new Error(usernameError)
-
-    const res = await api.post('/auth/register', userData)
-
-    if (res && res.success && res.data) {
-      setUser(res.data)
-      simpanSesi(res.data, res.token)
-      return res.data
-    } else {
-      throw new Error(res.message || 'Pendaftaran akun gagal!')
-    }
-  }
-
   const logout = () => {
     setUser(null)
     try {
@@ -104,7 +83,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, updateUser, login, register, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, updateUser, login, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   )

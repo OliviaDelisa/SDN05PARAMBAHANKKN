@@ -1,9 +1,6 @@
 import pool from '../db/db.js'
 import bcrypt from 'bcrypt'
 import { generateToken } from '../middleware.js'
-import { validateUsername } from './validators.js'
-
-const BCRYPT_ROUNDS = 10
 
 // POST /api/auth/login
 export async function loginUser(req, res) {
@@ -56,75 +53,6 @@ export async function loginUser(req, res) {
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan pada server saat login. Pastikan MySQL server aktif.'
-    })
-  }
-}
-
-// POST /api/auth/register
-export async function registerUser(req, res) {
-  const { nama_lengkap, nip, username, no_telepon, password } = req.body
-
-  if (!nama_lengkap || !nip || !username || !password) {
-    return res.status(400).json({
-      success: false,
-      message: 'Semua kolom wajib diisi!'
-    })
-  }
-
-  // Validasi format username
-  const usernameError = validateUsername(username)
-  if (usernameError) {
-    return res.status(400).json({ success: false, message: usernameError })
-  }
-
-  try {
-    // Cek apakah NIP atau username sudah terdaftar
-    const [existing] = await pool.query(
-      'SELECT id FROM users WHERE nip = ? OR username = ?',
-      [nip, username.toLowerCase()]
-    )
-
-    if (existing && existing.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'NIP atau Username sudah terdaftar dalam sistem!'
-      })
-    }
-
-    // Peran ditentukan sistem, BUKAN dari panjang NIP yang diisi pendaftar
-    // sendiri. Kalau ditentukan input, pendaftar bisa memilih perannya sendiri.
-    // Pendaftaran mandiri selalu menghasilkan Dokter Kecil UKS — peran Admin
-    // hanya bisa diberikan lewat panel admin.
-    const role = 'Dokter Kecil UKS'
-
-    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS)
-
-    const [result] = await pool.query(
-      `INSERT INTO users (nama_lengkap, username, nip, no_telepon, password, role)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [nama_lengkap, username.toLowerCase(), nip, no_telepon || '', hashedPassword, role]
-    )
-
-    const newUser = {
-      id: result.insertId,
-      nama_lengkap,
-      username: username.toLowerCase(),
-      nip,
-      no_telepon: no_telepon || '',
-      role
-    }
-
-    return res.status(201).json({
-      success: true,
-      message: 'Pendaftaran akun berhasil!',
-      data: newUser,
-      token: generateToken(newUser)
-    })
-  } catch (err) {
-    console.error('Register error:', err)
-    return res.status(500).json({
-      success: false,
-      message: 'Terjadi kesalahan saat membuat akun. Pastikan MySQL server aktif.'
     })
   }
 }

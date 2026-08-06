@@ -1,8 +1,39 @@
 # Rencana Eksekusi — Fitur Admin UKS Digital
 
 **Tanggal:** 4 Agustus 2026
-**Status:** Rencana (belum dikerjakan)
+**Status:** ✅ **SELESAI DIEKSEKUSI** — 6 Agustus 2026
 **Disinkronkan dengan:** perubahan Tahap 0, 1, dan 3 yang sudah selesai di sesi ini (lihat `PLAN_PERBAIKAN.md`)
+
+---
+
+## Status akhir eksekusi
+
+| Tahap | Status | Catatan |
+|---|:---:|---|
+| **A** — Rapikan peran | ✅ | ENUM `('Admin','Dokter Kecil UKS')`, `db/seedAdmin.js` |
+| **B.1** — Ubah/hapus siswa | ✅ | `requireRole('Admin')` di `routes/siswaRoutes.js` |
+| **B.2** — Pengaturan sekolah | ✅ | `requireRole('Admin')` pada `PUT /sekolah` |
+| **B.3** — API manajemen akun | ✅ | `routes/adminRoutes.js` + `/api/admin` di `app.js` |
+| **B.4** — Tutup pendaftaran publik | ✅ | Route, controller, dan `Register.jsx` dihapus |
+| **B.5** — Verifikasi endpoint | ✅ | 23/23 uji lulus |
+| **C** — Halaman admin | ✅ | 4 halaman baru + `AdminRoute` + menu peran |
+| **D** — Jejak audit | ✅ | `petugas_id` + FK `ON DELETE SET NULL` |
+
+**Dua penyimpangan dari rencana awal, keduanya disengaja:**
+
+1. **Dua peran, bukan tiga.** Rencana menyebut `Admin` / `Petugas UKS` / `Dokter Kecil UKS`.
+   Skema yang berlaku hanya mengenal **`Admin`** dan **`Dokter Kecil UKS`** — keputusan yang
+   diambil pada commit `13e9fd6`, lebih baru dari dokumen ini. Matriks hak akses di bawah
+   masih menampilkan kolom "Petugas UKS"; baca kolom itu sebagai "Dokter Kecil UKS".
+
+2. **`DataSiswa.jsx` memakai prop `mode`,** bukan dua berkas terpisah. Tabel, pencarian,
+   dan filter kelasnya identik — memisahkannya berarti setiap perubahan kolom dikerjakan
+   dua kali. `AdminDataSiswa.jsx` hanya pembungkus `<DataSiswa mode="admin" />`.
+
+**Cara memakai:** jalankan `npm run seed:admin` untuk membuat akun admin pertama
+(password dari `SEED_ADMIN_PASSWORD` di `.env`), lalu login dan buka **Panel Admin**.
+
+Temuan yang tertutup: **K-05**, **K-08**, **T-11**, **R-21**.
 
 ---
 

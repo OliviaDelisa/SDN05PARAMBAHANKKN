@@ -97,5 +97,16 @@ export const api = {
     create: (data) => fetchApi('/kunjungan', { method: 'POST', body: data }),
     update: (id, data) => fetchApi(`/kunjungan/${id}`, { method: 'PUT', body: data }),
     delete: (id) => fetchApi(`/kunjungan/${id}`, { method: 'DELETE' })
+  },
+
+  // Manajemen akun — seluruh endpoint ini ditolak 403 oleh server
+  // untuk siapa pun yang bukan Admin.
+  admin: {
+    getUsers: () => fetchApi('/admin/users'),
+    createUser: (data) => fetchApi('/admin/users', { method: 'POST', body: data }),
+    updateUser: (id, data) => fetchApi(`/admin/users/${id}`, { method: 'PUT', body: data }),
+    resetPassword: (id, password) =>
+      fetchApi(`/admin/users/${id}/password`, { method: 'PUT', body: { password } }),
+    deleteUser: (id) => fetchApi(`/admin/users/${id}`, { method: 'DELETE' })
   }
 }

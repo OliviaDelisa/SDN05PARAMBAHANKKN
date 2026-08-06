@@ -149,6 +149,7 @@ export async function initDatabase() {
       CREATE TABLE IF NOT EXISTS kunjungan (
         id INT AUTO_INCREMENT PRIMARY KEY,
         siswa_id INT,
+        petugas_id INT,
         siswa_nama VARCHAR(100) NOT NULL,
         siswa_nis VARCHAR(20) NOT NULL,
         kelas VARCHAR(5) NOT NULL,
@@ -167,7 +168,8 @@ export async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_waktu (waktu_masuk),
         INDEX idx_status (status),
-        INDEX idx_siswa (siswa_id)
+        INDEX idx_siswa (siswa_id),
+        INDEX idx_petugas (petugas_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
 
@@ -207,6 +209,53 @@ export async function initDatabase() {
       }
     } catch (fkErr) {
       console.warn('⚠️  Gagal menambahkan FOREIGN KEY kunjungan.siswa_id:', fkErr.message)
+    }
+
+    // Jejak audit: siapa yang mencatat kunjungan ini.
+    // Sebelumnya tidak ada catatan sama sekali — saat ada rekam yang keliru,
+    // tidak mungkin menelusuri siapa yang memasukkannya.
+    //
+    // ON DELETE SET NULL, pola yang sama dengan siswa_id: menghapus akun
+    // TIDAK boleh ikut menghapus rekam kunjungan yang pernah dicatatnya.
+    try {
+      const [kolomPetugas] = await pool.query(`SHOW COLUMNS FROM kunjungan LIKE 'petugas_id'`)
+
+      if (kolomPetugas.length === 0) {
+        console.log('🔄 Migrasi: menambahkan kolom petugas_id ke tabel kunjungan...')
+        await pool.query(`ALTER TABLE kunjungan ADD COLUMN petugas_id INT AFTER siswa_id`)
+        await pool.query(`ALTER TABLE kunjungan ADD INDEX idx_petugas (petugas_id)`)
+        console.log('✅ Kolom petugas_id ditambahkan (baris lama bernilai NULL).')
+      }
+
+      const [fkPetugas] = await pool.query(
+        `SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'kunjungan'
+           AND COLUMN_NAME = 'petugas_id' AND REFERENCED_TABLE_NAME = 'users'`,
+        [dbName]
+      )
+
+      if (fkPetugas.length === 0) {
+        // Bersihkan petugas_id yatim lebih dulu — ALTER TABLE akan gagal
+        // kalau masih ada baris yang menunjuk akun yang sudah tidak ada.
+        const [yatim] = await pool.query(
+          `UPDATE kunjungan SET petugas_id = NULL
+           WHERE petugas_id IS NOT NULL
+             AND petugas_id NOT IN (SELECT id FROM users)`
+        )
+        if (yatim.affectedRows > 0) {
+          console.log(`🔧 ${yatim.affectedRows} kunjungan menunjuk akun yang sudah tidak ada — tautan dilepas.`)
+        }
+
+        await pool.query(
+          `ALTER TABLE kunjungan
+           ADD CONSTRAINT fk_kunjungan_petugas
+           FOREIGN KEY (petugas_id) REFERENCES users(id)
+           ON DELETE SET NULL ON UPDATE CASCADE`
+        )
+        console.log('✅ FOREIGN KEY kunjungan.petugas_id → users.id ditambahkan (ON DELETE SET NULL).')
+      }
+    } catch (petugasErr) {
+      console.warn('⚠️  Migrasi kolom petugas_id dilewati:', petugasErr.message)
     }
 
     // Pengaturan Sekolah Table

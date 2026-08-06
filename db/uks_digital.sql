@@ -63,6 +63,7 @@ CREATE TABLE siswa (
 CREATE TABLE kunjungan (
   id INT AUTO_INCREMENT PRIMARY KEY,
   siswa_id INT,
+  petugas_id INT,
   siswa_nama VARCHAR(100) NOT NULL,
   siswa_nis VARCHAR(20) NOT NULL,
   kelas VARCHAR(5) NOT NULL,
@@ -82,10 +83,15 @@ CREATE TABLE kunjungan (
   INDEX idx_waktu (waktu_masuk),
   INDEX idx_status (status),
   INDEX idx_siswa (siswa_id),
+  INDEX idx_petugas (petugas_id),
   -- ON DELETE SET NULL disengaja: saat siswa dihapus, riwayat kunjungannya
   -- HARUS tetap ada (nama/NIS/kelas sudah disalin ke baris ini), hanya
   -- tautannya yang dilepas. Rekam kesehatan tidak boleh ikut terhapus.
   CONSTRAINT fk_kunjungan_siswa FOREIGN KEY (siswa_id) REFERENCES siswa(id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  -- Jejak audit: siapa yang mencatat kunjungan ini. Alasan SET NULL sama —
+  -- menghapus akun tidak boleh menghapus rekam yang pernah dicatatnya.
+  CONSTRAINT fk_kunjungan_petugas FOREIGN KEY (petugas_id) REFERENCES users(id)
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

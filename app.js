@@ -11,6 +11,7 @@ import authRoutes from './routes/authRoutes.js'
 import siswaRoutes from './routes/siswaRoutes.js'
 import kunjunganRoutes from './routes/kunjunganRoutes.js'
 import pengaturanRoutes from './routes/pengaturanRoutes.js'
+import adminRoutes from './routes/adminRoutes.js'
 import { errorHandler } from './middleware.js'
 
 dotenv.config()
@@ -48,6 +49,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/siswa', siswaRoutes)
 app.use('/api/kunjungan', kunjunganRoutes)
 app.use('/api/pengaturan', pengaturanRoutes)
+app.use('/api/admin', adminRoutes)
 
 // 404 khusus API — didaftarkan sebelum penyajian berkas statis supaya
 // endpoint yang salah tidak balas halaman HTML.

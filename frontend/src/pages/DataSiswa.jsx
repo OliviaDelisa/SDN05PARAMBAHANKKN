@@ -16,9 +16,24 @@ import { getInitials, getInitialColor, formatTanggalPendek } from '../utils/form
 import { useToast } from '../components/common/Toast'
 import { useData } from '../context/DataContext'
 
-export default function DataSiswa() {
+/**
+ * Halaman data siswa, dipakai dalam dua mode:
+ *
+ *   mode="petugas" (bawaan) — lihat, cari, tambah
+ *   mode="admin"            — plus ubah & hapus
+ *
+ * Satu komponen, bukan dua berkas: tabel, pencarian, dan filter kelasnya
+ * identik. Kalau dipisah, setiap perubahan kolom harus dikerjakan dua kali
+ * dan lambat laun keduanya akan menyimpang.
+ *
+ * Menyembunyikan tombol pada mode petugas hanyalah kerapian tampilan —
+ * PUT/DELETE /api/siswa sudah ditolak 403 oleh requireRole('Admin').
+ */
+export default function DataSiswa({ mode = 'petugas' }) {
+  const isAdmin = mode === 'admin'
+
   const toast = useToast()
-  const { siswaList, addSiswa, updateSiswa, deleteSiswa } = useData()
+  const { siswaList, kunjunganList, addSiswa, updateSiswa, deleteSiswa } = useData()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [filterKelas, setFilterKelas] = useState('')
@@ -63,6 +78,14 @@ export default function DataSiswa() {
     const matchKelas = !filterKelas || s.kelas === filterKelas
     return matchQuery && matchKelas
   })
+
+  // Dipakai untuk memperingatkan admin sebelum menghapus siswa yang
+  // sudah punya rekam kunjungan.
+  const jumlahRiwayat = deletingSiswa
+    ? kunjunganList.filter(
+        (k) => k.siswa_id === deletingSiswa.id || k.siswa_nis === deletingSiswa.nis
+      ).length
+    : 0
 
   // Open modal for new student
   const handleOpenAdd = () => {
@@ -200,29 +223,34 @@ export default function DataSiswa() {
         </div>
       )
     },
-    {
-      key: 'aksi',
-      label: 'Aksi',
-      width: '90px',
-      render: (_, row) => (
-        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => handleOpenEdit(row)}
-            className="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-500 hover:text-emerald-700 transition-colors"
-            title="Edit"
-          >
-            <Edit2 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setDeletingSiswa(row)}
-            className="p-1.5 rounded-lg bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 transition-colors"
-            title="Hapus"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )
-    }
+    // Kolom Aksi hanya untuk admin — petugas tidak punya hak ubah/hapus.
+    ...(isAdmin
+      ? [
+          {
+            key: 'aksi',
+            label: 'Aksi',
+            width: '90px',
+            render: (_, row) => (
+              <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => handleOpenEdit(row)}
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-500 hover:text-emerald-700 transition-colors"
+                  title="Edit"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setDeletingSiswa(row)}
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 transition-colors"
+                  title="Hapus"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )
+          }
+        ]
+      : [])
   ]
 
   return (
@@ -412,6 +440,21 @@ export default function DataSiswa() {
                 Hapus data siswa <strong>{deletingSiswa.nama}</strong> ({deletingSiswa.nis})? Tindakan ini tidak dapat dibatalkan.
               </p>
             </div>
+
+            {/* Rekam kunjungan tidak ikut terhapus (FK ON DELETE SET NULL),
+                tapi admin perlu tahu ada riwayat yang akan kehilangan
+                tautannya ke data induk siswa. */}
+            {jumlahRiwayat > 0 && (
+              <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-lg border border-amber-200 text-amber-800">
+                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-xs leading-relaxed">
+                  Siswa ini punya <strong>{jumlahRiwayat} rekam kunjungan</strong>. Riwayatnya
+                  tetap tersimpan dan masih bisa dicetak, tetapi tidak lagi tertaut ke data
+                  induk siswa.
+                </p>
+              </div>
+            )}
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeletingSiswa(null)}

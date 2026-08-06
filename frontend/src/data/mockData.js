@@ -62,13 +62,9 @@ export const siswaList = []
 
 export const kunjunganList = []
 
-export const petugasUks = {
-  nama_lengkap: 'Ibu Siti Rahmawati',
-  email: 'siti.rahmawati@sdn05parambahan.id',
-  nip: '198507152010012003',
-  no_telepon: '081234567890',
-  role: 'Admin'
-}
+// Catatan: profil petugas TIDAK lagi disimpan di sini. Identitas pengguna
+// selalu datang dari token login (AuthContext), supaya peran yang berlaku
+// tidak pernah berbeda dengan yang ditegakkan server.
 
 export const dataSekolah = {
   nama_sekolah: 'SDN 05 Parambahan',

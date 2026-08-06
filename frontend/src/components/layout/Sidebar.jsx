@@ -4,6 +4,7 @@ import {
   ClipboardPlus,
   History,
   Users,
+  ShieldCheck,
   Info,
   LogOut
 } from 'lucide-react'
@@ -14,6 +15,7 @@ const menuItems = [
   { path: '/pendaftaran', icon: ClipboardPlus, label: 'Pendaftaran Kunjungan' },
   { path: '/riwayat', icon: History, label: 'Riwayat Kunjungan' },
   { path: '/siswa', icon: Users, label: 'Data Siswa' },
+  { path: '/admin', icon: ShieldCheck, label: 'Panel Admin', adminOnly: true },
   { path: '/pengaturan', icon: Info, label: 'Info' }
 
 ]
@@ -24,7 +26,11 @@ const MOBILE_BREAKPOINT = 1024
 export default function Sidebar({ open, onClose }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
+
+  // Menu admin disembunyikan dari petugas biasa. Ini semata agar tampilannya
+  // tidak membingungkan — endpoint-nya sendiri sudah dijaga di server.
+  const menuTerlihat = menuItems.filter((m) => !m.adminOnly || user?.role === 'Admin')
 
   const isActive = (path) => {
     if (path === '/') return location.pathname === '/'
@@ -56,7 +62,7 @@ export default function Sidebar({ open, onClose }) {
 
       {/* Navigation Menu */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {menuItems.map((item) => {
+        {menuTerlihat.map((item) => {
           const Icon = item.icon
           const active = isActive(item.path)
 
