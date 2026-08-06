@@ -21,13 +21,9 @@ const pageInfo = {
     title: 'Data Siswa',
     subtitle: 'Kelola data siswa terdaftar'
   },
-  '/laporan': {
-    title: 'Laporan & Analitik',
-    subtitle: 'Rekap dan grafik kunjungan UKS'
-  },
   '/pengaturan': {
     title: 'Pengaturan',
-    subtitle: 'Profil petugas & data sekolah'
+    subtitle: 'Profil Dokcil & data sekolah'
   }
 }
 
@@ -45,8 +41,8 @@ export default function Topbar({ onToggleSidebar }) {
 
   const { title, subtitle } = getPageInfo(location.pathname)
 
-  const initial = getInitials(user?.nama_lengkap || 'Petugas UKS')
-  const avatarBg = getInitialColor(user?.nama_lengkap || 'Petugas UKS')
+  const initial = getInitials(user?.nama_lengkap || 'Dokter Kecil')
+  const avatarBg = getInitialColor(user?.nama_lengkap || 'Dokter Kecil')
 
   return (
     <header className="h-16 shrink-0 bg-white border-b border-slate-200 px-6 flex items-center justify-between">
@@ -73,7 +69,7 @@ export default function Topbar({ onToggleSidebar }) {
       <div className="flex items-center gap-3 shrink-0">
         <div className="text-right hidden sm:block">
           <p className="text-xs font-semibold text-slate-800 leading-tight">
-            {user?.nama_lengkap || 'Petugas UKS'}
+            {user?.nama_lengkap || 'Dokter Kecil'}
           </p>
           <p className="text-[11px] text-slate-400 leading-tight">
             {user?.role || 'Admin'}

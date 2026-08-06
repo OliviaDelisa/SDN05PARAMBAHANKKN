@@ -1,20 +1,9 @@
 import pool from '../db/db.js'
+import bcrypt from 'bcrypt'
+import { generateToken } from '../middleware.js'
+import { validateUsername } from './validators.js'
 
-// Aturan validasi username:
-// - Hanya huruf kecil, angka, dan underscore (_)
-// - Minimal 4 karakter, maksimal 20 karakter
-// - Tidak boleh dimulai dengan angka
-const USERNAME_REGEX = /^[a-z][a-z0-9_]{3,19}$/
-
-function validateUsername(username) {
-  if (!username) return 'Username wajib diisi!'
-  if (username.length < 4) return 'Username minimal 4 karakter!'
-  if (username.length > 20) return 'Username maksimal 20 karakter!'
-  if (/^[0-9]/.test(username)) return 'Username tidak boleh dimulai dengan angka!'
-  if (!/^[a-z0-9_]+$/.test(username)) return 'Username hanya boleh berisi huruf kecil, angka, dan underscore (_)!'
-  if (!USERNAME_REGEX.test(username)) return 'Format username tidak valid! Gunakan huruf kecil, angka, dan underscore saja.'
-  return null
-}
+const BCRYPT_ROUNDS = 10
 
 // POST /api/auth/login
 export async function loginUser(req, res) {
@@ -42,7 +31,11 @@ export async function loginUser(req, res) {
 
     const user = rows[0]
 
-    if (user.password !== password) {
+    // Bandingkan hash, bukan teks biasa. Password lama yang masih plaintext
+    // ditolak di sini — jalankan `node db/rehashPasswords.js` untuk migrasi.
+    const cocok = await bcrypt.compare(password, user.password)
+
+    if (!cocok) {
       return res.status(401).json({
         success: false,
         message: 'Username/NIP atau Password yang Anda masukkan salah!'
@@ -50,10 +43,13 @@ export async function loginUser(req, res) {
     }
 
     const { password: _, ...userData } = user
+    const token = generateToken(user)
+
     return res.json({
       success: true,
       message: 'Login berhasil! Selamat bekerja.',
-      data: userData
+      data: userData,
+      token
     })
   } catch (err) {
     console.error('Login error:', err)
@@ -95,13 +91,18 @@ export async function registerUser(req, res) {
       })
     }
 
-    const isDokterKecil = nip.length <= 10
-    const role = isDokterKecil ? 'Dokter Kecil UKS' : 'Petugas UKS Pegawai'
+    // Peran ditentukan sistem, BUKAN dari panjang NIP yang diisi pendaftar
+    // sendiri. Kalau ditentukan input, pendaftar bisa memilih perannya sendiri.
+    // Pendaftaran mandiri selalu menghasilkan Dokter Kecil UKS — peran Admin
+    // hanya bisa diberikan lewat panel admin.
+    const role = 'Dokter Kecil UKS'
+
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS)
 
     const [result] = await pool.query(
       `INSERT INTO users (nama_lengkap, username, nip, no_telepon, password, role)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [nama_lengkap, username.toLowerCase(), nip, no_telepon || '', password, role]
+      [nama_lengkap, username.toLowerCase(), nip, no_telepon || '', hashedPassword, role]
     )
 
     const newUser = {
@@ -116,7 +117,8 @@ export async function registerUser(req, res) {
     return res.status(201).json({
       success: true,
       message: 'Pendaftaran akun berhasil!',
-      data: newUser
+      data: newUser,
+      token: generateToken(newUser)
     })
   } catch (err) {
     console.error('Register error:', err)

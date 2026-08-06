@@ -1,6 +1,6 @@
-# UKS Digital - SDN 05 Parambahan
+# UKS Digital — SDN 05 Parambahan
 
-Sistem Manajemen Buku Kunjungan & Laporan Rekapitulasi Kesehatan UKS Berbasis Web & Desktop (PWA) untuk **SD Negeri 05 Parambahan, Kabupaten Solok, Sumatera Barat**.
+Sistem Manajemen Buku Kunjungan UKS Berbasis Web & Desktop (PWA) untuk **SD Negeri 05 Parambahan, Kabupaten Solok, Sumatera Barat**.
 
 ![UKS Digital Banner](frontend/public/icon-512.png)
 
@@ -8,93 +8,150 @@ Sistem Manajemen Buku Kunjungan & Laporan Rekapitulasi Kesehatan UKS Berbasis We
 
 ## 🌟 Fitur Utama
 
-- 🎨 **Ultra-Premium Dark Glassmorphism UI**: Antarmuka modern dengan palette warna Navy `#0B132B`, Emerald `#10B981`, Sky `#0EA5E9`, dan font *Plus Jakarta Sans* + *DM Sans*.
-- 💻 **Dapat Diinstal ke Desktop (PWA)**: Aplikasi berbasis web yang dapat diinstal langsung ke PC Desktop / Laptop Windows & Mac melalui Google Chrome / Microsoft Edge.
-- 🔐 **Autentikasi & Hak Akses (Login & Register)**:
-  - Form Pendaftaran khusus Pegawai UKS (NIP) dan Dokter Kecil (NIS).
-  - Validasi domain email resmi sekolah (`@sdn05parambahan.id`).
-- 📅 **Input Waktu Masuk dengan Fitur Kalender Interaktif**:
-  - Komponen `DatePicker` khusus dengan navigasi bulan, pemilih jam & menit, serta tombol pintas *"Sekarang"*.
-- 🔍 **Pencarian Autocomplete Data Siswa & Tingkat Kelas (1 - 6)**:
-  - Pencarian instant berbasis NIS/Nama siswa tanpa section A/B.
-- 📋 **Pendaftaran & Rekam Kunjungan Sakit**:
-  - Pilihan keluhan utama, catatan tambahan, status penanganan, dan penandaan khusus **Kasus Darurat**.
-- 📊 **Laporan & Analitik Rekapitulasi Kesehatan**:
-  - Grafik distribusi kunjungan per kelas dan peringkat keluhan terbanyak.
-  - Ringkasan naratif otomatis dan penanganan data kosong (*empty states*).
-- 🖨️ **Ekspor & Cetak PDF Resmi (A4 Layout)**:
-  - Dilengkapi Kop Surat Resmi Sekolah, garis ganda instansi, ringkasan rekapitulasi, serta **Lembar Pengesahan / Tanda Tangan** (Kepala Sekolah & Petugas UKS Utama).
-  - Tombol langsung unduh file `.pdf` via `html2pdf.js` & cetak A4 layout (`@media print`).
+- 💻 **Dapat Diinstal ke Desktop (PWA)** — aplikasi web yang bisa dipasang langsung ke PC/laptop lewat Chrome atau Edge.
+- 🔐 **Autentikasi berbasis username** dengan password ter-hash (bcrypt) dan token sesi (JWT) yang ditegakkan di sisi server.
+- 📅 **Input waktu masuk dengan kalender interaktif** — komponen `DatePicker` dengan navigasi bulan, pemilih jam & menit, serta tombol pintas *"Sekarang"*.
+- 🔍 **Pencarian autocomplete data siswa** berbasis NIS atau nama, dengan tingkat kelas 1–6.
+- 📋 **Pendaftaran & rekam kunjungan sakit** — keluhan utama, catatan tambahan, tindakan, status penanganan, dan penandaan **Kasus Darurat**.
+- ✅ **Tutup kunjungan sekali klik** — tombol "Selesai" mengisi waktu keluar dan menandai siswa kembali ke kelas.
+- ✏️ **Ubah rekam kunjungan** bila ada salah input, tanpa perlu hapus dan catat ulang.
+- 🗂️ **Riwayat dengan filter lengkap** — pencarian, kelas, status, rentang tanggal, dan penyaring kasus darurat.
+- 📤 **Ekspor CSV siap Excel Indonesia** — pemisah titik koma dan BOM UTF-8 supaya karakter seperti `°C` tampil benar.
+- 🖨️ **Cetak PDF resmi (A4)** — kop surat sekolah diambil dari database, ringkasan rekapitulasi, dan lembar pengesahan Kepala Sekolah.
 
 ---
 
-## 🛠️ Teknologi & Stack (MVC Architecture)
+## 🛠️ Teknologi
 
-### Frontend Stack:
+### Frontend
 - **React 19** + **Vite 8**
 - **Tailwind CSS v4**
-- **Lucide React** (Modern Icons)
-- **Recharts** (Data Visualization)
+- **Lucide React** (ikon)
+- **Recharts** (grafik)
 - **Vite PWA Plugin** (`vite-plugin-pwa`)
-- **html2pdf.js** (Direct PDF Generation)
+- **jsPDF** + **html2canvas-pro** (unduh PDF)
 
-### Backend & Database Stack:
+### Backend & Database
 - **Node.js** + **Express 5**
-- **MySQL2** (Connection Pool with Failover)
-- **dotenv** & **CORS**
+- **MySQL2** (connection pool)
+- **bcrypt** (hash password) · **jsonwebtoken** (token sesi) · **zod** (validasi input)
+- **express-rate-limit** (pembatas percobaan login)
 
 ---
 
-## 🚀 Cara Menjalankan Aplikasi
+## 🚀 Cara Menjalankan
 
-### 1. Prasyarat:
-- **Node.js** (v18 ke atas) & **npm**
-- (Opsional) Database **MySQL / MariaDB**
+### 1. Prasyarat
+- **Node.js** v18 ke atas & **npm**
+- **MySQL / MariaDB** (Laragon, XAMPP, atau instalasi mandiri) — **wajib aktif**, server menolak menyala tanpa database.
 
-### 2. Instalasi & Running Frontend:
+### 2. Konfigurasi
+
 ```bash
-cd frontend
+cp .env.example .env
+```
+
+Sesuaikan isinya. Yang wajib diperiksa sebelum dipakai di sekolah:
+
+| Variabel | Keterangan |
+|---|---|
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Koneksi MySQL |
+| `JWT_SECRET` | **Ganti dengan teks acak panjang.** Token sesi ditandatangani dengan kunci ini. |
+| `SEED_ADMIN_PASSWORD` | Password akun awal. Kosongkan untuk memakai `admin` — dan segera ganti setelah login. |
+| `FRONTEND_URL` | Alamat frontend, dipakai untuk pembatasan CORS |
+| `PORT` | Port server (bawaan 3000) |
+
+### 3. Mode pengembangan (dua server)
+
+```bash
 npm install
 npm run dev
 ```
-Aplikasi frontend akan berjalan di: `http://localhost:5173`
 
-### 3. Running Backend API:
+Frontend di `http://localhost:5173`, API di `http://localhost:3000`.
+
+### 4. Mode produksi (satu port)
+
 ```bash
-# Di direktori utama (root)
-npm install
-node server.js
+npm run build
+npm start
 ```
-API server backend akan berjalan di: `http://localhost:3000`
+
+Seluruh aplikasi berjalan di `http://localhost:3000` — Express menyajikan hasil build frontend, jadi tidak perlu server kedua.
+
+### 5. Menyiapkan database
+
+Skema dibuat **otomatis** saat server pertama kali dijalankan (`db/initDB.js`), termasuk tabel, indeks, FOREIGN KEY, dan akun awal.
+
+Untuk import manual lewat phpMyAdmin, tersedia `db/uks_digital.sql`.
+> ⚠️ Berkas itu memuat `DROP TABLE` — menjalankannya pada database berisi data akan menghapus semuanya. Buat cadangan dulu.
 
 ---
 
-## 🔑 Akun Demo Petugas UKS
+## 🔧 Perintah Tambahan
 
-| Role | NIP / NIS | Email | Password |
-|---|---|---|---|
-| **Petugas UKS Utama** | `198507152010012003` | `siti.rahmawati@sdn05parambahan.id` | `admin` |
+| Perintah | Kegunaan |
+|---|---|
+| `npm run backup` | Cadangkan seluruh isi database ke `backups/` |
+| `npm run rehash` | Ubah password lama yang masih teks biasa menjadi hash bcrypt |
+| `npm run dev:backend` | Jalankan backend saja |
+| `npm run dev:frontend` | Jalankan frontend saja |
 
 ---
 
-## 📁 Struktur Direktori Project
+## 🔑 Akun Awal
+
+| Peran | Username | Password |
+|---|---|---|
+| Petugas UKS Utama | `siti_rahmawati` | sesuai `SEED_ADMIN_PASSWORD` (bawaan: `admin`) |
+
+> **Ganti password ini setelah login pertama.** Akun awal hanya dibuat saat tabel `users` masih kosong.
+
+### Aturan username
+Huruf kecil, angka, dan underscore (`_`). Minimal 4 karakter, maksimal 20, tidak boleh diawali angka.
+
+---
+
+## 🔒 Catatan Keamanan
+
+Aplikasi ini menyimpan **data kesehatan anak di bawah umur**. Yang sudah diterapkan:
+
+- Seluruh endpoint API **wajib login** — tidak ada data yang bisa diambil tanpa token yang sah.
+- Password disimpan sebagai hash bcrypt, tidak pernah dalam bentuk teks biasa.
+- Identitas diambil dari token yang ditandatangani server, bukan dari header yang bisa dipalsukan klien.
+- Percobaan login dibatasi 5 kali per 15 menit.
+- CORS dibatasi ke alamat frontend yang dikonfigurasi.
+- Pesan error teknis hanya masuk log server; klien menerima pesan umum.
+
+Sebelum dipasang di komputer sekolah:
+1. Ganti `JWT_SECRET` dengan teks acak panjang.
+2. Ganti password akun awal.
+3. Buat pengguna MySQL khusus dengan hak terbatas — jangan pakai `root` tanpa password.
+4. Jadwalkan `npm run backup` secara berkala dan simpan hasilnya di penyimpanan terpisah.
+
+---
+
+## 📁 Struktur Direktori
 
 ```
 ukssdkkn/
-├── controllers/              # REST API Controllers (Siswa, Kunjungan, Laporan)
-├── db/                       # Konfigurasi Database MySQL & Init Scripts
-├── routes/                   # Endpoint Routing Express.js
+├── controllers/              # Controller REST API + validators.js (skema zod)
+├── routes/                   # Routing Express, dijaga requireAuth
+├── db/                       # Koneksi, inisialisasi skema, backup, migrasi password
+├── middleware.js             # requireAuth, requireRole, errorHandler
 ├── frontend/
-│   ├── public/               # Icon PWA (192px/512px) & Manifest
+│   ├── public/               # Ikon PWA & manifest
 │   ├── src/
-│   │   ├── components/       # UI Components (CustomSelect, DatePicker, DataTable, Modal, Toast)
-│   │   ├── context/          # Auth Context & State Management
-│   │   ├── data/             # Initial Data & References
-│   │   ├── pages/            # Page Views (Dashboard, Pendaftaran, Riwayat, Siswa, Laporan, Login, Register)
-│   │   └── utils/            # Date & String Formatters
+│   │   ├── components/
+│   │   │   ├── common/       # CustomSelect, DatePicker, DataTable, Modal, Toast, dll.
+│   │   │   └── layout/       # AppLayout, Sidebar, Topbar, PageHeader
+│   │   ├── context/          # AuthContext (sesi) & DataContext (data aplikasi)
+│   │   ├── data/             # Daftar referensi (keluhan, tindakan, status, kelas)
+│   │   ├── pages/            # Dashboard, Pendaftaran, Riwayat, DataSiswa, Pengaturan, Login, Register
+│   │   └── utils/            # api.js (pemanggil API) & formatters.js
 │   └── vite.config.js        # Konfigurasi Vite & PWA
-├── app.js                    # Express App Setup
-├── server.js                 # HTTP Server Entry Point
+├── app.js                    # Perakitan Express
+├── server.js                 # Titik masuk server
 └── README.md
 ```
 

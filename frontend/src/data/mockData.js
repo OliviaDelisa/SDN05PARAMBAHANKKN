@@ -67,14 +67,14 @@ export const petugasUks = {
   email: 'siti.rahmawati@sdn05parambahan.id',
   nip: '198507152010012003',
   no_telepon: '081234567890',
-  role: 'Petugas UKS Utama'
+  role: 'Admin'
 }
 
 export const dataSekolah = {
   nama_sekolah: 'SDN 05 Parambahan',
-  npsn: '10303456',
+  npsn: '10301599',
   telepon_sekolah: '0751234567',
-  kepala_sekolah: 'Muswar Dedi, S.Pd',
+  kepala_sekolah: 'Muswar Dedi, S.Pd.',
   kepala_nip: '198510082010011013',
   alamat: 'Jl. Pendidikan No. 5, Nagari Parambahan, Kec. Bukit Sundi, Kab. Solok, Sumatera Barat'
 }

@@ -15,15 +15,62 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
   useEffect(() => {
     if (!isOpen) return
 
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') onClose()
+    // Ingat elemen yang tadinya fokus supaya bisa dikembalikan saat modal
+    // ditutup — tanpa ini, fokus keyboard "hilang" ke awal halaman.
+    const sebelumnya = document.activeElement
+
+    const elemenFokusable = () => {
+      if (!contentRef.current) return []
+      return Array.from(
+        contentRef.current.querySelectorAll(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => el.offsetParent !== null)
     }
-    document.addEventListener('keydown', handleEscape)
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+
+      // Kurung fokus di dalam modal: Tab dari elemen terakhir kembali ke
+      // elemen pertama, dan sebaliknya untuk Shift+Tab.
+      if (e.key !== 'Tab') return
+
+      const daftar = elemenFokusable()
+      if (daftar.length === 0) {
+        e.preventDefault()
+        return
+      }
+
+      const pertama = daftar[0]
+      const terakhir = daftar[daftar.length - 1]
+
+      if (e.shiftKey && document.activeElement === pertama) {
+        e.preventDefault()
+        terakhir.focus()
+      } else if (!e.shiftKey && document.activeElement === terakhir) {
+        e.preventDefault()
+        pertama.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
     document.body.style.overflow = 'hidden'
 
+    // Pindahkan fokus ke dalam modal setelah animasi buka dimulai
+    const timer = setTimeout(() => {
+      const daftar = elemenFokusable()
+      if (daftar.length > 0) daftar[0].focus()
+      else contentRef.current?.focus()
+    }, 0)
+
     return () => {
-      document.removeEventListener('keydown', handleEscape)
+      clearTimeout(timer)
+      document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = ''
+      if (sebelumnya instanceof HTMLElement) sebelumnya.focus()
     }
   }, [isOpen, onClose])
 
@@ -52,6 +99,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
+        tabIndex={-1}
       >
         {/* Header */}
         <div className="sticky top-0 bg-white/95 backdrop-blur-md z-10 flex items-center justify-between px-6 py-4 border-b border-slate-100">

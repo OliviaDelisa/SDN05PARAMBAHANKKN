@@ -5,20 +5,40 @@ import html2canvas from 'html2canvas-pro'
 import { formatTanggal, formatTanggalWaktu } from '../../utils/formatters'
 import { useToast } from './Toast'
 
+// Batas baris agar browser tidak membeku saat data mencapai ribuan.
+// html2canvas merender seluruh tabel menjadi satu gambar — tanpa batas ini,
+// laporan setahun bisa menggantung tab selama puluhan detik.
+const MAKS_BARIS = 500
+
 export default function PrintReportTemplate({
   title = 'LAPORAN REKAPITULASI KESEHATAN UKS',
   periodeLabel = 'Juli 2026',
   dataKunjungan = [],
-  kepalaSekolah = 'Muswar Dedi, S.Pd',
+  sekolah = null,
+  kepalaSekolah = 'Muswar Dedi, S.Pd.',
   kepalaNip = '198510082010011013'
 }) {
   const toast = useToast()
   const printRef = useRef(null)
   const [isGenerating, setIsGenerating] = useState(false)
 
-  const todayStr = formatTanggal(new Date().toISOString())
+  const todayStr = formatTanggal(new Date())
 
-  // Calculate summary metrics
+  // Identitas sekolah diambil dari database bila tersedia, dengan nilai
+  // bawaan sebagai cadangan supaya kop surat tidak pernah kosong.
+  const namaSekolah = sekolah?.nama_sekolah || 'SD NEGERI 05 PARAMBAHAN'
+  const alamatSekolah =
+    sekolah?.alamat || 'Jl. Pendidikan No. 5, Nagari Parambahan, Kec. Bukit Sundi, Kab. Solok'
+  const npsnSekolah = sekolah?.npsn
+  const teleponSekolah = sekolah?.telepon_sekolah
+  const namaKepala = sekolah?.kepala_sekolah || kepalaSekolah
+  const nipKepala = sekolah?.kepala_nip || kepalaNip
+
+  const dipotong = dataKunjungan.length > MAKS_BARIS
+  const barisTampil = dipotong ? dataKunjungan.slice(0, MAKS_BARIS) : dataKunjungan
+
+  // Ringkasan dihitung dari SELURUH data, bukan hanya yang tampil, supaya
+  // angka rekapitulasi tetap benar walau tabelnya dipotong.
   const totalKunjungan = dataKunjungan.length
   const totalDarurat = dataKunjungan.filter((k) => k.is_darurat).length
   const totalKembali = dataKunjungan.filter((k) => k.status === 'Kembali ke Kelas').length
@@ -71,7 +91,7 @@ export default function PrintReportTemplate({
         heightLeft -= usableHeight
       }
 
-      const safeFileName = periodeLabel.replace(/[\/\s]+/g, '_')
+      const safeFileName = periodeLabel.replace(/[/\s]+/g, '_')
       pdf.save(`Laporan_UKS_SDN05_${safeFileName}.pdf`)
 
       toast.success('File PDF berhasil diunduh!')
@@ -139,9 +159,11 @@ export default function PrintReportTemplate({
           <div className="text-center pb-3 border-b-4 border-black relative">
             <h3 className="text-sm font-bold uppercase tracking-wide">PEMERINTAH KABUPATEN SOLOK</h3>
             <h3 className="text-sm font-bold uppercase tracking-wide">DINAS PENDIDIKAN, PEMUDA DAN OLAHRAGA</h3>
-            <h1 className="text-xl font-black uppercase tracking-wider text-black mt-0.5">SD NEGERI 05 PARAMBAHAN</h1>
+            <h1 className="text-xl font-black uppercase tracking-wider text-black mt-0.5">{namaSekolah}</h1>
             <p className="text-[11px] font-sans italic text-slate-800 mt-1">
-              Alamat: Jl. Pendidikan No. 5, Nagari Parambahan, Kec. Bukit Sundi, Kab. Solok. Kode Pos 27371
+              Alamat: {alamatSekolah}
+              {npsnSekolah && ` · NPSN: ${npsnSekolah}`}
+              {teleponSekolah && ` · Telp: ${teleponSekolah}`}
             </p>
             {/* Double Horizontal Line */}
             <div className="w-full h-0.5 bg-black mt-2" />
@@ -203,8 +225,8 @@ export default function PrintReportTemplate({
                 </tr>
               </thead>
               <tbody>
-                {dataKunjungan.length > 0 ? (
-                  dataKunjungan.map((k, idx) => (
+                {barisTampil.length > 0 ? (
+                  barisTampil.map((k, idx) => (
                     <tr key={k.id || idx} className={idx % 2 === 1 ? 'bg-slate-50' : ''}>
                       <td className="border border-slate-900 p-2 text-center font-bold">{idx + 1}</td>
                       <td className="border border-slate-900 p-2 font-mono text-[11px]">{formatTanggalWaktu(k.waktu_masuk)}</td>
@@ -227,20 +249,31 @@ export default function PrintReportTemplate({
                 )}
               </tbody>
             </table>
+
+            {dipotong && (
+              <p className="mt-2 text-[11px] italic text-slate-700">
+                Catatan: tabel menampilkan {MAKS_BARIS} kunjungan pertama dari total{' '}
+                {totalKunjungan} kunjungan pada periode ini. Angka rekapitulasi di atas
+                dihitung dari seluruh data. Persempit rentang tanggal untuk laporan yang
+                lebih rinci.
+              </p>
+            )}
           </div>
 
           {/* Official Signature Block (Tanda Tangan & Pengesahan) — hanya Kepala Sekolah */}
-          <div className="pt-6 font-sans text-xs">
+          <div className="print-signature pt-6 font-sans text-xs">
             <div className="flex justify-end text-center">
               <div className="space-y-16 w-64">
                 <div>
                   <p className="font-semibold">Parambahan, {todayStr}</p>
                   <p className="font-bold">Mengetahui,</p>
-                  <p className="font-bold">Kepala SD Negeri 05 Parambahan</p>
+                  <p className="font-bold">Kepala {namaSekolah}</p>
                 </div>
                 <div>
-                  <p className="font-bold underline text-sm">{kepalaSekolah}</p>
-                  <p className="text-[11px] font-mono text-slate-700">NIP. {kepalaNip}</p>
+                  <p className="font-bold underline text-sm">{namaKepala}</p>
+                  {nipKepala && (
+                    <p className="text-[11px] font-mono text-slate-700">NIP. {nipKepala}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -251,23 +284,25 @@ export default function PrintReportTemplate({
       {/* Print Specific CSS Rules */}
       <style>{`
         @media print {
-          /* Hide non-print UI elements */
-          body * {
-            visibility: hidden !important;
+          /* Sembunyikan seluruh isi halaman, lalu tampilkan kembali HANYA
+             jalur dari <body> sampai area cetak.
+
+             Memakai display:none, bukan visibility:hidden — visibility
+             menyisakan ruang elemen tersembunyi, sehingga sidebar & topbar
+             masih memakan tinggi halaman dan PDF sering diawali halaman
+             kosong. Aturan ':not(:has())' menjaga elemen leluhur tetap
+             tampil tanpa perlu tahu kedalaman sarangnya. */
+          body :not(:has(.print-area)):not(.print-area):not(.print-area *) {
+            display: none !important;
           }
+
           .no-print {
             display: none !important;
           }
 
-          /* Force printable container visible */
-          .print-area, .print-area * {
-            visibility: visible !important;
-          }
-
           .print-area {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
+            display: block !important;
+            position: static !important;
             width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
@@ -275,11 +310,26 @@ export default function PrintReportTemplate({
             color: black !important;
             border: none !important;
             box-shadow: none !important;
+            border-radius: 0 !important;
+          }
+
+          /* Ulangi header tabel di setiap halaman, dan jangan potong baris
+             di tengah — penting untuk laporan yang lebih dari satu halaman. */
+          .print-document thead {
+            display: table-header-group;
+          }
+          .print-document tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          .print-signature {
+            page-break-inside: avoid;
+            break-inside: avoid;
           }
 
           @page {
             size: A4 portrait;
-            margin: 15mm 15mm 15mm 15mm;
+            margin: 15mm;
           }
         }
       `}</style>

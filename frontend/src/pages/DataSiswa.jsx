@@ -39,6 +39,10 @@ export default function DataSiswa() {
   // Delete Confirm Modal State
   const [deletingSiswa, setDeletingSiswa] = useState(null)
 
+  // Cegah klik ganda saat menyimpan / menghapus
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
   // Options formatted for CustomSelect
   const kelasFilterOptions = [
     { value: '', label: 'Semua Kelas' },
@@ -94,28 +98,44 @@ export default function DataSiswa() {
   const handleSave = async (e) => {
     e.preventDefault()
 
+    if (saving) return
+
     if (!formData.nis || !formData.nama) {
       toast.error('NIS dan Nama Lengkap wajib diisi!')
       return
     }
 
-    if (editingSiswa) {
-      await updateSiswa(editingSiswa.id, formData)
-      toast.success(`Data siswa ${formData.nama} berhasil diperbarui!`)
-    } else {
-      await addSiswa(formData)
-      toast.success(`Siswa baru ${formData.nama} berhasil ditambahkan!`)
+    setSaving(true)
+    try {
+      if (editingSiswa) {
+        await updateSiswa(editingSiswa.id, formData)
+        toast.success(`Data siswa ${formData.nama} berhasil diperbarui!`)
+      } else {
+        await addSiswa(formData)
+        toast.success(`Siswa baru ${formData.nama} berhasil ditambahkan!`)
+      }
+      setIsModalOpen(false)
+    } catch (err) {
+      toast.error(`Gagal menyimpan data siswa: ${err.message}`)
+    } finally {
+      setSaving(false)
     }
-
-    setIsModalOpen(false)
   }
 
   // Delete
   const handleDeleteConfirm = async () => {
-    if (!deletingSiswa) return
-    await deleteSiswa(deletingSiswa.id)
-    toast.success(`Data siswa ${deletingSiswa.nama} berhasil dihapus.`)
-    setDeletingSiswa(null)
+    if (!deletingSiswa || deleting) return
+
+    setDeleting(true)
+    try {
+      await deleteSiswa(deletingSiswa.id)
+      toast.success(`Data siswa ${deletingSiswa.nama} berhasil dihapus.`)
+      setDeletingSiswa(null)
+    } catch (err) {
+      toast.error(`Gagal menghapus data siswa: ${err.message}`)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const columns = [
@@ -367,10 +387,11 @@ export default function DataSiswa() {
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center gap-2 cursor-pointer"
+              disabled={saving}
+              className="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
-              <span>Simpan</span>
+              <span>{saving ? 'Menyimpan...' : 'Simpan'}</span>
             </button>
           </div>
         </form>
@@ -400,9 +421,10 @@ export default function DataSiswa() {
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm cursor-pointer"
+                disabled={deleting}
+                className="px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Hapus
+                {deleting ? 'Menghapus...' : 'Hapus'}
               </button>
             </div>
           </div>

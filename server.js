@@ -6,21 +6,21 @@ dotenv.config()
 
 const PORT = process.env.PORT || 3000
 
-// Inisialisasi schema MySQL saat server startup
+// Inisialisasi schema MySQL saat server startup.
+// Server TIDAK BOLEH menyala tanpa database — petugas bisa mencatat sepanjang
+// pagi dan semua penyimpanan gagal tanpa peringatan apa pun.
 initDatabase()
   .then((success) => {
-    if (success) {
-      console.log('🗄️  MySQL Database terhubung dan siap!')
-    } else {
-      console.warn('⚠️  Gagal terhubung ke MySQL. Pastikan MySQL Laragon/XAMPP sudah aktif.')
+    if (!success) {
+      console.error('\n❌ GAGAL terhubung ke MySQL. Server dihentikan.')
+      console.error('   Pastikan MySQL (Laragon/XAMPP) sudah aktif, lalu jalankan ulang.\n')
+      process.exit(1)
     }
-  })
-  .catch((err) => {
-    console.error('Database error:', err.message)
-  })
 
-app.listen(PORT, () => {
-  console.log(`
+    console.log('🗄️  MySQL Database terhubung dan siap!')
+
+    app.listen(PORT, () => {
+      console.log(`
   🏥 ========================================================
   UKS Digital Server Running!
   --------------------------------------------------------
@@ -30,4 +30,10 @@ app.listen(PORT, () => {
   DB Name    : ${process.env.DB_NAME || 'uks_digital'}
   ========================================================
   `)
-})
+    })
+  })
+  .catch((err) => {
+    console.error('\n❌ Database error:', err.message)
+    console.error('   Server dihentikan agar data tidak hilang diam-diam.\n')
+    process.exit(1)
+  })

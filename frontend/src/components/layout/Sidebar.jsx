@@ -4,7 +4,6 @@ import {
   ClipboardPlus,
   History,
   Users,
-  BarChart3,
   Info,
   LogOut
 } from 'lucide-react'
@@ -16,6 +15,7 @@ const menuItems = [
   { path: '/riwayat', icon: History, label: 'Riwayat Kunjungan' },
   { path: '/siswa', icon: Users, label: 'Data Siswa' },
   { path: '/pengaturan', icon: Info, label: 'Info' }
+
 ]
 
 // Breakpoint 'lg' Tailwind (harus sama dengan breakpoint yang dipakai di className lg:hidden / lg:block)

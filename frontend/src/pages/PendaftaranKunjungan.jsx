@@ -14,7 +14,7 @@ import CustomSelect from '../components/common/CustomSelect'
 import { useToast } from '../components/common/Toast'
 import { useData } from '../context/DataContext'
 import { keluhanOptions, tindakanOptions, statusOptions } from '../data/mockData'
-import { getInitials, getInitialColor } from '../utils/formatters'
+import { getInitials, getInitialColor, waktuLokalSekarang } from '../utils/formatters'
 
 function getDefaultWaktuMasuk() {
   const now = new Date()
@@ -28,7 +28,7 @@ export default function PendaftaranKunjungan() {
 
   // Form State
   const [selectedSiswa, setSelectedSiswa] = useState(null)
-  const [waktuMasuk, setWaktuMasuk] = useState(getDefaultWaktuMasuk)
+  const [waktuMasuk, setWaktuMasuk] = useState(() => waktuLokalSekarang())
   const [selectedKeluhan, setSelectedKeluhan] = useState([])
   const [keterangan, setKeterangan] = useState('')
   const [isDarurat, setIsDarurat] = useState(false)
@@ -41,6 +41,7 @@ export default function PendaftaranKunjungan() {
 
   // Success State
   const [successData, setSuccessData] = useState(null)
+  const [saving, setSaving] = useState(false)
 
   // Mengosongkan semua field form (tidak menyentuh successData)
   const clearForm = () => {
@@ -57,6 +58,9 @@ export default function PendaftaranKunjungan() {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
+
+    if (saving) return
+
     if (!selectedSiswa) {
       toast.error('Silakan cari dan pilih siswa terlebih dahulu!')
       return
@@ -67,8 +71,8 @@ export default function PendaftaranKunjungan() {
       return
     }
 
+    // id TIDAK dibuat di klien — MySQL yang menentukan lewat AUTO_INCREMENT
     const newRecord = {
-      id: Date.now(),
       siswa_id: selectedSiswa.id,
       siswa_nama: selectedSiswa.nama,
       siswa_nis: selectedSiswa.nis,
@@ -81,12 +85,17 @@ export default function PendaftaranKunjungan() {
       status
     }
 
-    await addKunjungan(newRecord)
-    setSuccessData(newRecord)
-    toast.success(`Kunjungan ${selectedSiswa.nama} berhasil disimpan!`)
 
-    // Form otomatis dikosongkan lagi begitu berhasil disimpan
-    clearForm()
+    setSaving(true)
+    try {
+      const tersimpan = await addKunjungan(newRecord)
+      setSuccessData(tersimpan || newRecord)
+      toast.success(`Kunjungan ${selectedSiswa.nama} berhasil disimpan!`)
+    } catch (err) {
+      toast.error(`Gagal menyimpan kunjungan: ${err.message}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleReset = () => {
@@ -95,7 +104,7 @@ export default function PendaftaranKunjungan() {
   }
 
   return (
-  <div className="space-y-5">
+    <div className="space-y-5">
 
       {/* Success Notification Banner */}
       {successData && (
@@ -220,14 +229,16 @@ export default function PendaftaranKunjungan() {
             <div className="pt-3 border-t border-slate-100 flex items-center gap-3">
               <button
                 type="submit"
+                disabled={saving}
                 className="
                   flex-1 py-2.5 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-700
                   text-white font-semibold text-sm transition-colors
                   flex items-center justify-center gap-2
+                  disabled:opacity-60 disabled:cursor-not-allowed
                 "
               >
                 <Save className="w-4 h-4" />
-                <span>Simpan</span>
+                <span>{saving ? 'Menyimpan...' : 'Simpan'}</span>
               </button>
               <button
                 type="button"

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import PageHeader from '../components/layout/PageHeader'
 import { useAuth } from '../context/AuthContext'
+
 import { getInitials, getInitialColor } from '../utils/formatters'
 import { api } from '../utils/api'
 import { dataSekolah as fallbackSekolah } from '../data/mockData'
@@ -52,18 +53,25 @@ export default function Pengaturan() {
   const [sekolah, setSekolah] = useState({
     ...fallbackSekolah,
     kepala_sekolah: 'Muswar Dedi, S.Pd.',
-    kepala_nip: '10301599'
+    kepala_nip: '198510082010011013'
   })
 
   const [loadingData, setLoadingData] = useState(true)
 
-  // Ambil data terkini dari API saat halaman dibuka
+  // Ambil data terkini dari API saat halaman dibuka.
+  // updateUser TIDAK dipanggil di sini: saat memuat, itu bisa menimpa sesi
+  // yang sedang aktif. Sesi hanya diperbarui setelah petugas menyimpan.
   useEffect(() => {
+    let dibatalkan = false
+
     async function fetchData() {
       setLoadingData(true)
       try {
         const res = await api.get('/pengaturan')
+        if (dibatalkan) return
+
         if (res?.success && res.data) {
+
           // Update profil dokcil dari DB (prioritaskan data DB, fallback ke session)
           if (res.data.petugas && res.data.petugas.id) {
             const fetched = {
@@ -73,20 +81,28 @@ export default function Pengaturan() {
             }
             setPetugas(fetched)
             updateUser(fetched)
+
           }
-          // Update data sekolah dari DB
           if (res.data.sekolah && res.data.sekolah.id) {
             setSekolah(res.data.sekolah)
           }
         }
-      } catch (err) {
+
+      } catch {
         // Fallback ke data yang sudah ada — tidak perlu tampilkan error
+
       } finally {
-        setLoadingData(false)
+        if (!dibatalkan) setLoadingData(false)
       }
     }
+
     fetchData()
+    return () => {
+      dibatalkan = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
 
   const initial = getInitials(petugas.nama_lengkap)
   const avatarBg = getInitialColor(petugas.nama_lengkap)
