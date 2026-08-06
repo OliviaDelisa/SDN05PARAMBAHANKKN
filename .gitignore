@@ -1,0 +1,27 @@
+# Node modules
+node_modules/
+
+# Environment
+.env
+
+# Frontend build
+frontend/dist/
+
+# Logs
+*.log
+
+# Upload file
+uploads/*
+
+# File SQLite — aplikasi memakai MySQL. File ini pernah berisi password
+# plaintext, jadi jangan pernah masuk repositori.
+*.db
+*.db-shm
+*.db-wal
+
+# Cadangan database — BERISI DATA KESEHATAN SISWA, jangan masuk git
+backups/
+*.sql.gz
+
+# Dokumentasi: abaikan catatan pribadi saja, bukan semua .md
+*.local.md
