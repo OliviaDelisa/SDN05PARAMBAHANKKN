@@ -67,3 +67,44 @@ export function getTahunOptions() {
   }
   return years
 }
+
+// Warna badge per status penanganan. Ditaruh di sini supaya Dashboard dan
+// Riwayat memakai pemetaan yang sama persis.
+export function getStatusVariant(status) {
+  switch (status) {
+    case 'Kembali ke Kelas': return 'success'
+    case 'Istirahat di UKS': return 'warning'
+    case 'Dijemput Wali': return 'info'
+    case 'Dirujuk ke Klinik': return 'danger'
+    default: return 'neutral'
+  }
+}
+
+/**
+ * Waktu sekarang dalam format yang diterima <input type="datetime-local">
+ * DAN kolom DATETIME MySQL, memakai zona waktu lokal.
+ *
+ * Jangan pakai toISOString() untuk ini — hasilnya UTC, sehingga kunjungan
+ * pukul 07.00 WIB tercatat sebagai 00.00 dan bisa jatuh ke tanggal sebelumnya.
+ */
+export function waktuLokalSekarang() {
+  const d = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/** Ubah nilai tanggal apa pun menjadi 'YYYY-MM-DD' menurut waktu lokal. */
+export function tanggalLokal(date) {
+  const d = date instanceof Date ? date : new Date(date)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/** Ubah nilai datetime menjadi format yang dipakai <input type="datetime-local">. */
+export function keInputDatetime(value) {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}

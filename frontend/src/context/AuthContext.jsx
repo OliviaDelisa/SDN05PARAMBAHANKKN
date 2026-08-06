@@ -1,9 +1,10 @@
 import { createContext, useContext, useState } from 'react'
-import { api } from '../utils/api'
+import { api, TOKEN_KEY } from '../utils/api'
 
 const AuthContext = createContext(null)
 
-// Aturan username: huruf kecil, angka, underscore, min 4, max 20, tidak boleh dimulai angka
+// Aturan username: huruf kecil, angka, underscore, min 4, max 20, tidak boleh dimulai angka.
+// Harus sama persis dengan controllers/validators.js di sisi server.
 export function validateUsername(username) {
   if (!username) return 'Username wajib diisi!'
   if (username.length < 4) return 'Username minimal 4 karakter!'
@@ -19,19 +20,35 @@ export function AuthProvider({ children }) {
     if (saved) {
       try {
         return JSON.parse(saved)
-      } catch (e) {
+      } catch {
         return null
       }
     }
     return null
   })
 
+  const simpanSesi = (userData, token) => {
+    try {
+      sessionStorage.setItem('uks_user', JSON.stringify(userData))
+      if (token) sessionStorage.setItem(TOKEN_KEY, token)
+    } catch (e) {
+      console.error('Gagal menyimpan sesi:', e)
+    }
+  }
+
   const updateUser = (userData) => {
     setUser((prev) => {
       const updated = { ...prev, ...userData }
-      sessionStorage.setItem('uks_user', JSON.stringify(updated))
       return updated
     })
+    // Efek samping dikeluarkan dari updater setState — updater harus murni.
+    try {
+      const saved = sessionStorage.getItem('uks_user')
+      const prev = saved ? JSON.parse(saved) : {}
+      sessionStorage.setItem('uks_user', JSON.stringify({ ...prev, ...userData }))
+    } catch (e) {
+      console.error('Gagal memperbarui sesi:', e)
+    }
   }
 
   const login = async (username, password) => {
@@ -43,7 +60,7 @@ export function AuthProvider({ children }) {
 
     if (res && res.success && res.data) {
       setUser(res.data)
-      sessionStorage.setItem('uks_user', JSON.stringify(res.data))
+      simpanSesi(res.data, res.token)
       return res.data
     } else {
       throw new Error(res.message || 'Username/NIP atau Password yang Anda masukkan salah!')
@@ -51,7 +68,7 @@ export function AuthProvider({ children }) {
   }
 
   const register = async (userData) => {
-    const { nama_lengkap, nip, username, no_telepon, password } = userData
+    const { nama_lengkap, nip, username, password } = userData
 
     if (!nama_lengkap || !nip || !username || !password) {
       throw new Error('Semua kolom wajib diisi!')
@@ -64,7 +81,7 @@ export function AuthProvider({ children }) {
 
     if (res && res.success && res.data) {
       setUser(res.data)
-      sessionStorage.setItem('uks_user', JSON.stringify(res.data))
+      simpanSesi(res.data, res.token)
       return res.data
     } else {
       throw new Error(res.message || 'Pendaftaran akun gagal!')
@@ -73,8 +90,17 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     setUser(null)
-    sessionStorage.removeItem('uks_user')
-    localStorage.removeItem('uks_user')
+    try {
+      // Bersihkan SEMUA jejak sesi. Di komputer bersama, sisa data kesehatan
+      // siswa masih terbaca lewat DevTools kalau tidak dihapus.
+      sessionStorage.removeItem('uks_user')
+      sessionStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem('uks_user')
+      localStorage.removeItem('uks_siswa_data_clean')
+      localStorage.removeItem('uks_kunjungan_data_clean')
+    } catch (e) {
+      console.error('Gagal membersihkan sesi:', e)
+    }
   }
 
   return (

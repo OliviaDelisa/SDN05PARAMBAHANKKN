@@ -21,10 +21,6 @@ const pageInfo = {
     title: 'Data Siswa',
     subtitle: 'Kelola data siswa terdaftar'
   },
-  '/laporan': {
-    title: 'Laporan & Analitik',
-    subtitle: 'Rekap dan grafik kunjungan UKS'
-  },
   '/pengaturan': {
     title: 'Pengaturan',
     subtitle: 'Profil petugas & data sekolah'

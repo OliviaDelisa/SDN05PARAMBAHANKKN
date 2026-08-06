@@ -4,12 +4,11 @@ import {
   Building2,
   Save,
   AtSign,
-  Building,
   Loader2
 } from 'lucide-react'
 import PageHeader from '../components/layout/PageHeader'
 import { useToast } from '../components/common/Toast'
-import { useAuth } from '../context/AuthContext'
+import { useAuth, validateUsername } from '../context/AuthContext'
 import { getInitials, getInitialColor } from '../utils/formatters'
 import { api } from '../utils/api'
 import { dataSekolah as fallbackSekolah } from '../data/mockData'
@@ -32,41 +31,70 @@ export default function Pengaturan() {
   const [loadingSekolah, setLoadingSekolah] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
 
-  // Ambil data terkini dari API saat halaman dibuka
+  // Ambil data terkini dari API saat halaman dibuka.
+  // updateUser TIDAK dipanggil di sini: saat memuat, itu bisa menimpa sesi
+  // yang sedang aktif. Sesi hanya diperbarui setelah petugas menyimpan.
   useEffect(() => {
+    let dibatalkan = false
+
     async function fetchData() {
       setLoadingData(true)
       try {
         const res = await api.get('/pengaturan')
+        if (dibatalkan) return
+
         if (res?.success && res.data) {
-          // Update profil petugas dari DB (prioritaskan data DB, fallback ke session)
           if (res.data.petugas && res.data.petugas.id) {
-            const fetched = {
-              nama_lengkap: res.data.petugas.nama_lengkap || user?.nama_lengkap || '',
-              username: res.data.petugas.username || user?.username || '',
-              nip: res.data.petugas.nip || user?.nip || '',
-              no_telepon: res.data.petugas.no_telepon || user?.no_telepon || '',
-              role: res.data.petugas.role || user?.role || ''
-            }
-            setPetugas(fetched)
-            updateUser(fetched)
+            setPetugas({
+              nama_lengkap: res.data.petugas.nama_lengkap || '',
+              username: res.data.petugas.username || '',
+              nip: res.data.petugas.nip || '',
+              no_telepon: res.data.petugas.no_telepon || '',
+              role: res.data.petugas.role || ''
+            })
           }
-          // Update data sekolah dari DB
           if (res.data.sekolah && res.data.sekolah.id) {
             setSekolah(res.data.sekolah)
           }
         }
-      } catch (err) {
-        // Fallback ke data session yang sudah ada — tidak perlu tampilkan error
+      } catch {
+        if (!dibatalkan) {
+          toast.error('Gagal memuat pengaturan dari server. Menampilkan data sesi terakhir.')
+        }
       } finally {
-        setLoadingData(false)
+        if (!dibatalkan) setLoadingData(false)
       }
     }
+
     fetchData()
+    return () => {
+      dibatalkan = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleSavePetugas = async (e) => {
     e.preventDefault()
+    if (loadingPetugas) return
+
+    // Validasi di klien memakai aturan yang sama dengan server, supaya
+    // petugas tidak bisa menyimpan username yang membuatnya gagal login.
+    const usernameError = validateUsername(petugas.username)
+    if (usernameError) {
+      toast.error(usernameError)
+      return
+    }
+
+    if (!petugas.nama_lengkap?.trim()) {
+      toast.error('Nama lengkap wajib diisi!')
+      return
+    }
+
+    if (!petugas.nip?.trim()) {
+      toast.error('NIP wajib diisi!')
+      return
+    }
+
     setLoadingPetugas(true)
     try {
       const res = await api.put('/pengaturan/petugas', {
@@ -75,11 +103,10 @@ export default function Pengaturan() {
         nip: petugas.nip,
         no_telepon: petugas.no_telepon
       })
-      // Update AuthContext & Session Storage secara reaktif
+      // Sesi diperbarui HANYA setelah server mengonfirmasi penyimpanan.
       if (res?.data) {
+        setPetugas((prev) => ({ ...prev, ...res.data }))
         updateUser(res.data)
-      } else {
-        updateUser(petugas)
       }
       toast.success('Profil petugas UKS berhasil diperbarui!')
     } catch (err) {
@@ -91,6 +118,13 @@ export default function Pengaturan() {
 
   const handleSaveSekolah = async (e) => {
     e.preventDefault()
+    if (loadingSekolah) return
+
+    if (!sekolah.nama_sekolah?.trim()) {
+      toast.error('Nama sekolah wajib diisi!')
+      return
+    }
+
     setLoadingSekolah(true)
     try {
       await api.put('/pengaturan/sekolah', sekolah)

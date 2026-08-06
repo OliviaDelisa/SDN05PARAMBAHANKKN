@@ -1,4 +1,5 @@
 import mysql from 'mysql2/promise'
+import bcrypt from 'bcrypt'
 import pool from './db.js'
 import dotenv from 'dotenv'
 
@@ -19,8 +20,8 @@ export async function initDatabase() {
   const dbName = process.env.DB_NAME || 'uks_digital'
 
   try {
-    console.log(`🔄 Connecting to MySQL server at 127.0.0.1:${port}...`)
-    const rootConnection = await mysql.createConnection({ host: '127.0.0.1', port, user, password })
+    console.log(`🔄 Connecting to MySQL server at ${host}:${port}...`)
+    const rootConnection = await mysql.createConnection({ host, port, user, password })
     await rootConnection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`)
     await rootConnection.end()
     console.log(`✅ MySQL Database \`${dbName}\` verified / created successfully!`)
@@ -53,17 +54,59 @@ export async function initDatabase() {
         console.log('✅ Migrasi kolom email → username selesai!')
       }
     } catch (migErr) {
-      // Kolom sudah benar, abaikan
+      // Bukan error fatal, tapi jangan dibiarkan bisu — kalau migrasi gagal,
+      // penyebabnya perlu terlihat di log.
+      console.warn('⚠️  Blok migrasi email → username dilewati:', migErr.message)
     }
 
-    // Seed default admin user jika tabel masih kosong
+    // Migrasi: batasi `role` ke tiga nilai resmi.
+    // Sebelumnya kolom ini VARCHAR bebas dan sudah tumbuh menjadi beberapa
+    // nilai berbeda ('Petugas UKS Utama', 'Dokter Kecil UKS', ...). Selama
+    // nilainya bebas, requireRole('Admin') tidak punya dasar yang bisa
+    // dipercaya. Idempoten — dilewati kalau kolom sudah berbentuk ENUM.
+    try {
+      const [kolomRole] = await pool.query(`SHOW COLUMNS FROM users LIKE 'role'`)
+      const tipeSekarang = kolomRole[0]?.Type || ''
+
+      if (!tipeSekarang.toLowerCase().startsWith('enum')) {
+        console.log('🔄 Migrasi: membatasi kolom role ke Admin / Petugas UKS / Dokter Kecil UKS...')
+
+        // Nilai di luar daftar resmi HARUS dinormalkan lebih dulu — ALTER ke
+        // ENUM akan menolak baris yang nilainya tidak dikenal.
+        const [ubah] = await pool.query(
+          `UPDATE users SET role = 'Petugas UKS'
+           WHERE role IS NULL
+              OR role NOT IN ('Admin', 'Petugas UKS', 'Dokter Kecil UKS')`
+        )
+        if (ubah.affectedRows > 0) {
+          console.log(`   ${ubah.affectedRows} akun dengan peran lama dinormalkan menjadi 'Petugas UKS'.`)
+        }
+
+        await pool.query(
+          `ALTER TABLE users
+           MODIFY COLUMN role ENUM('Admin', 'Petugas UKS', 'Dokter Kecil UKS')
+           NOT NULL DEFAULT 'Petugas UKS'`
+        )
+        console.log('✅ Kolom role kini terbatas pada tiga nilai resmi.')
+      }
+    } catch (roleErr) {
+      console.warn('⚠️  Migrasi kolom role dilewati:', roleErr.message)
+    }
+
+    // Seed default admin user jika tabel masih kosong.
+    // Password DIHASH — jangan pernah menyimpan teks biasa.
     const [users] = await pool.query('SELECT COUNT(*) as count FROM users')
     if (users[0].count === 0) {
-      await pool.query(`
-        INSERT INTO users (nama_lengkap, username, nip, no_telepon, password, role)
-        VALUES ('Ibu Siti Rahmawati', 'siti_rahmawati', '198507152010012003', '081234567890', 'admin', 'Petugas UKS Utama')
-      `)
-      console.log('🌱 Seeded Default Admin User (username: siti_rahmawati / Pass: admin)')
+      const seedPassword = process.env.SEED_ADMIN_PASSWORD || 'admin'
+      const hashed = await bcrypt.hash(seedPassword, 10)
+
+      await pool.query(
+        `INSERT INTO users (nama_lengkap, username, nip, no_telepon, password, role)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        ['Ibu Siti Rahmawati', 'siti_rahmawati', '198507152010012003', '081234567890', hashed, 'Petugas UKS']
+      )
+      console.log(`🌱 Seeded Default Admin User (username: siti_rahmawati / Pass: ${seedPassword})`)
+      console.log('   ⚠️  SEGERA ganti password ini setelah login pertama!')
     }
 
     // Siswa Table
@@ -105,9 +148,48 @@ export async function initDatabase() {
         ) NOT NULL DEFAULT 'Istirahat di UKS',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_waktu (waktu_masuk),
-        INDEX idx_status (status)
+        INDEX idx_status (status),
+        INDEX idx_siswa (siswa_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
+
+    // Integritas referensial siswa_id → siswa.id.
+    // ON DELETE SET NULL dipilih dengan sengaja: saat seorang siswa dihapus,
+    // riwayat kunjungannya HARUS tetap ada (nama/NIS/kelas sudah disalin ke
+    // baris kunjungan), hanya tautannya yang dilepas. Rekam kesehatan tidak
+    // boleh ikut terhapus.
+    // Blok ini idempoten — CREATE TABLE IF NOT EXISTS tidak mengubah tabel
+    // yang sudah terbentuk, jadi constraint ditambahkan terpisah di sini.
+    try {
+      const [fk] = await pool.query(
+        `SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'kunjungan'
+           AND COLUMN_NAME = 'siswa_id' AND REFERENCED_TABLE_NAME = 'siswa'`,
+        [dbName]
+      )
+
+      if (fk.length === 0) {
+        // Bersihkan dulu siswa_id yatim, kalau tidak ALTER TABLE akan gagal.
+        const [yatim] = await pool.query(
+          `UPDATE kunjungan SET siswa_id = NULL
+           WHERE siswa_id IS NOT NULL
+             AND siswa_id NOT IN (SELECT id FROM siswa)`
+        )
+        if (yatim.affectedRows > 0) {
+          console.log(`🔧 ${yatim.affectedRows} kunjungan menunjuk siswa yang sudah tidak ada — tautan dilepas.`)
+        }
+
+        await pool.query(
+          `ALTER TABLE kunjungan
+           ADD CONSTRAINT fk_kunjungan_siswa
+           FOREIGN KEY (siswa_id) REFERENCES siswa(id)
+           ON DELETE SET NULL ON UPDATE CASCADE`
+        )
+        console.log('✅ FOREIGN KEY kunjungan.siswa_id → siswa.id ditambahkan (ON DELETE SET NULL).')
+      }
+    } catch (fkErr) {
+      console.warn('⚠️  Gagal menambahkan FOREIGN KEY kunjungan.siswa_id:', fkErr.message)
+    }
 
     // Pengaturan Sekolah Table
     await pool.query(`

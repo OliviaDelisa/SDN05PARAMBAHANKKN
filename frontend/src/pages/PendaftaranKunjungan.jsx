@@ -14,7 +14,7 @@ import CustomSelect from '../components/common/CustomSelect'
 import { useToast } from '../components/common/Toast'
 import { useData } from '../context/DataContext'
 import { keluhanOptions, tindakanOptions, statusOptions } from '../data/mockData'
-import { getInitials, getInitialColor } from '../utils/formatters'
+import { getInitials, getInitialColor, waktuLokalSekarang } from '../utils/formatters'
 
 export default function PendaftaranKunjungan() {
   const toast = useToast()
@@ -22,11 +22,7 @@ export default function PendaftaranKunjungan() {
 
   // Form State
   const [selectedSiswa, setSelectedSiswa] = useState(null)
-  const [waktuMasuk, setWaktuMasuk] = useState(() => {
-    const now = new Date()
-    const tzoffset = now.getTimezoneOffset() * 60000
-    return new Date(Date.now() - tzoffset).toISOString().slice(0, 16)
-  })
+  const [waktuMasuk, setWaktuMasuk] = useState(() => waktuLokalSekarang())
   const [selectedKeluhan, setSelectedKeluhan] = useState([])
   const [keterangan, setKeterangan] = useState('')
   const [isDarurat, setIsDarurat] = useState(false)
@@ -35,27 +31,25 @@ export default function PendaftaranKunjungan() {
 
   // Success State
   const [successData, setSuccessData] = useState(null)
+  const [saving, setSaving] = useState(false)
 
   const handleSubmit = async (e) => {
-  e.preventDefault()
+    e.preventDefault()
 
-  console.log('selectedSiswa:', selectedSiswa)
-  console.log('selectedKeluhan:', selectedKeluhan)
-  console.log('keterangan:', JSON.stringify(keterangan))
+    if (saving) return
 
-  if (!selectedSiswa) {
-    toast.error('Silakan cari dan pilih siswa terlebih dahulu!')
-    return
-  }
+    if (!selectedSiswa) {
+      toast.error('Silakan cari dan pilih siswa terlebih dahulu!')
+      return
+    }
 
-  if (selectedKeluhan.length === 0 && !keterangan) {
-    toast.error('Pilih minimal satu keluhan atau isi keterangan!')
-    return
-  }
-    
+    if (selectedKeluhan.length === 0 && !keterangan) {
+      toast.error('Pilih minimal satu keluhan atau isi keterangan!')
+      return
+    }
 
+    // id TIDAK dibuat di klien — MySQL yang menentukan lewat AUTO_INCREMENT
     const newRecord = {
-      id: Date.now(),
       siswa_id: selectedSiswa.id,
       siswa_nama: selectedSiswa.nama,
       siswa_nis: selectedSiswa.nis,
@@ -68,9 +62,16 @@ export default function PendaftaranKunjungan() {
       status
     }
 
-    await addKunjungan(newRecord)
-    setSuccessData(newRecord)
-    toast.success(`Kunjungan ${selectedSiswa.nama} berhasil disimpan!`)
+    setSaving(true)
+    try {
+      const tersimpan = await addKunjungan(newRecord)
+      setSuccessData(tersimpan || newRecord)
+      toast.success(`Kunjungan ${selectedSiswa.nama} berhasil disimpan!`)
+    } catch (err) {
+      toast.error(`Gagal menyimpan kunjungan: ${err.message}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleReset = () => {
@@ -209,14 +210,16 @@ export default function PendaftaranKunjungan() {
             <div className="pt-3 border-t border-slate-100 flex items-center gap-3">
               <button
                 type="submit"
+                disabled={saving}
                 className="
                   flex-1 py-2.5 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-700
                   text-white font-semibold text-sm transition-colors
                   flex items-center justify-center gap-2
+                  disabled:opacity-60 disabled:cursor-not-allowed
                 "
               >
                 <Save className="w-4 h-4" />
-                <span>Simpan</span>
+                <span>{saving ? 'Menyimpan...' : 'Simpan'}</span>
               </button>
               <button
                 type="button"

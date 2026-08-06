@@ -4,7 +4,6 @@ import {
   ClipboardPlus,
   History,
   Users,
-  BarChart3,
   Settings,
   LogOut
 } from 'lucide-react'
@@ -15,7 +14,6 @@ const menuItems = [
   { path: '/pendaftaran', icon: ClipboardPlus, label: 'Pendaftaran Kunjungan' },
   { path: '/riwayat', icon: History, label: 'Riwayat Kunjungan' },
   { path: '/siswa', icon: Users, label: 'Data Siswa' },
-  { path: '/laporan', icon: BarChart3, label: 'Laporan & Analitik' },
   { path: '/pengaturan', icon: Settings, label: 'Pengaturan' }
 ]
 

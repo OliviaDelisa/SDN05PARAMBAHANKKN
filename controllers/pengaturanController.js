@@ -1,50 +1,77 @@
 import pool from '../db/db.js'
+import { validateUsername } from './validators.js'
 
 export const pengaturanController = {
   // GET /api/pengaturan — ambil profil user yang login + data sekolah
-  get: async (req, res) => {
+  get: async (req, res, next) => {
     try {
-      const userId = req.headers['x-user-id']
-      const sekolahRes = await pool.query('SELECT * FROM pengaturan_sekolah LIMIT 1')
-      const sekolah = sekolahRes[0][0] || {}
+      // Identitas diambil dari token hasil verifikasi, BUKAN dari header klien.
+      const userId = req.user.id
 
-      let petugas = {}
-      if (userId) {
-        const [rows] = await pool.query(
-          'SELECT id, nama_lengkap, username, nip, no_telepon, role FROM users WHERE id = ?',
-          [userId]
-        )
-        petugas = rows[0] || {}
-      } else {
-        // Fallback: ambil user pertama
-        const [rows] = await pool.query(
-          'SELECT id, nama_lengkap, username, nip, no_telepon, role FROM users LIMIT 1'
-        )
-        petugas = rows[0] || {}
+      const [sekolahRows] = await pool.query('SELECT * FROM pengaturan_sekolah LIMIT 1')
+      const sekolah = sekolahRows[0] || {}
+
+      const [rows] = await pool.query(
+        'SELECT id, nama_lengkap, username, nip, no_telepon, role FROM users WHERE id = ?',
+        [userId]
+      )
+
+      if (rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Akun tidak ditemukan.' })
       }
 
-      res.json({ success: true, data: { petugas, sekolah } })
+      res.json({ success: true, data: { petugas: rows[0], sekolah } })
     } catch (err) {
-      res.status(500).json({ success: false, message: err.message })
+      next(err)
     }
   },
 
   // PUT /api/pengaturan/petugas — update profil user yang login
-  updatePetugas: async (req, res) => {
+  updatePetugas: async (req, res, next) => {
     try {
-      const userId = req.headers['x-user-id']
+      const userId = req.user.id
       const { nama_lengkap, username, nip, no_telepon } = req.body
 
-      if (!userId) {
-        return res.status(400).json({ success: false, message: 'User ID tidak ditemukan!' })
+      if (!nama_lengkap || !nama_lengkap.trim()) {
+        return res.status(400).json({ success: false, message: 'Nama lengkap wajib diisi!' })
       }
 
-      await pool.query(
-        'UPDATE users SET nama_lengkap = ?, username = ?, nip = ?, no_telepon = ? WHERE id = ?',
-        [nama_lengkap, username ? username.toLowerCase() : null, nip, no_telepon, userId]
+      if (!nip || !nip.trim()) {
+        return res.status(400).json({ success: false, message: 'NIP wajib diisi!' })
+      }
+
+      // Validasi format username memakai aturan yang SAMA dengan register.
+      // Tanpa ini, username seperti "ab" bisa tersimpan dan pemiliknya
+      // terkunci dari akun selamanya karena login menolak format itu.
+      const usernameError = validateUsername(username)
+      if (usernameError) {
+        return res.status(400).json({ success: false, message: usernameError })
+      }
+
+      const usernameLower = username.toLowerCase()
+
+      // Cegah tabrakan dengan akun lain sebelum menyentuh constraint MySQL.
+      const [bentrok] = await pool.query(
+        'SELECT id FROM users WHERE (username = ? OR nip = ?) AND id != ?',
+        [usernameLower, nip, userId]
       )
 
-      // Kembalikan data terbaru
+      if (bentrok.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username atau NIP tersebut sudah dipakai akun lain!'
+        })
+      }
+
+      const [result] = await pool.query(
+        'UPDATE users SET nama_lengkap = ?, username = ?, nip = ?, no_telepon = ? WHERE id = ?',
+        [nama_lengkap.trim(), usernameLower, nip.trim(), no_telepon || '', userId]
+      )
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ success: false, message: 'Akun tidak ditemukan.' })
+      }
+
       const [rows] = await pool.query(
         'SELECT id, nama_lengkap, username, nip, no_telepon, role FROM users WHERE id = ?',
         [userId]
@@ -56,21 +83,36 @@ export const pengaturanController = {
         data: rows[0] || {}
       })
     } catch (err) {
-      res.status(500).json({ success: false, message: err.message })
+      next(err)
     }
   },
 
   // PUT /api/pengaturan/sekolah — update data sekolah
-  updateSekolah: async (req, res) => {
+  updateSekolah: async (req, res, next) => {
     try {
       const { nama_sekolah, npsn, telepon_sekolah, kepala_sekolah, alamat } = req.body
-      await pool.query(
+
+      if (!nama_sekolah || !nama_sekolah.trim()) {
+        return res.status(400).json({ success: false, message: 'Nama sekolah wajib diisi!' })
+      }
+
+      const [result] = await pool.query(
         'UPDATE pengaturan_sekolah SET nama_sekolah = ?, npsn = ?, telepon_sekolah = ?, kepala_sekolah = ?, alamat = ? WHERE id = 1',
-        [nama_sekolah, npsn, telepon_sekolah, kepala_sekolah, alamat]
+        [nama_sekolah.trim(), npsn || '', telepon_sekolah || '', kepala_sekolah || '', alamat || '']
       )
+
+      // Baris id = 1 dibuat oleh initDB. Kalau tidak ada, ada yang salah dengan
+      // inisialisasi database — jangan laporkan sukses palsu.
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Data sekolah belum tersedia. Jalankan ulang server untuk inisialisasi.'
+        })
+      }
+
       res.json({ success: true, message: 'Data sekolah berhasil diperbarui!' })
     } catch (err) {
-      res.status(500).json({ success: false, message: err.message })
+      next(err)
     }
   }
 }

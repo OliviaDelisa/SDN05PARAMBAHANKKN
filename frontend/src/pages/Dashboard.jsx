@@ -27,8 +27,9 @@ import {
 import StatCard from '../components/common/StatCard'
 import Badge from '../components/common/Badge'
 import Modal from '../components/common/Modal'
-import { formatWaktu, getInitials, getInitialColor } from '../utils/formatters'
+import { formatWaktu, getInitials, getInitialColor, getStatusVariant, tanggalLokal, getGreeting } from '../utils/formatters'
 import { useData } from '../context/DataContext'
+import { useAuth } from '../context/AuthContext'
 
 const PIE_COLORS = ['#10B981', '#0EA5E9', '#F59E0B', '#8B5CF6', '#F43F5E', '#94A3B8']
 
@@ -64,6 +65,7 @@ function getPeriodStart(period) {
 
 export default function Dashboard() {
   const { siswaList = [], kunjunganList = [] } = useData()
+  const { user } = useAuth()
 
   const [selectedVisit, setSelectedVisit] = useState(null)
   const [period, setPeriod] = useState('harian')
@@ -133,28 +135,34 @@ export default function Dashboard() {
     total: item.total
   }))
 
-  // Tren kunjungan 7 hari terakhir (fixed, tidak mengikuti filter periode)
+  // Tren kunjungan 7 hari terakhir (tetap, tidak mengikuti filter periode).
+  // Perbandingan tanggal memakai waktu LOKAL — toISOString() menghasilkan UTC,
+  // sehingga di WIB (UTC+7) kunjungan sebelum pukul 07.00 akan terhitung
+  // masuk ke hari sebelumnya.
   const weeklyTrend = Array.from({ length: 7 }).map((_, i) => {
     const date = new Date()
     date.setDate(date.getDate() - (6 - i))
-    const dateStr = date.toISOString().split('T')[0]
+    const dateStr = tanggalLokal(date)
     const label = date.toLocaleDateString('id-ID', { weekday: 'short' })
-    const total = kunjunganList.filter((k) => k.waktu_masuk?.startsWith(dateStr)).length
+    const total = kunjunganList.filter((k) => {
+      if (!k.waktu_masuk) return false
+      return tanggalLokal(k.waktu_masuk) === dateStr
+    }).length
     return { name: label, total }
   })
 
-  const getStatusVariant = (status) => {
-    switch (status) {
-      case 'Kembali ke Kelas': return 'success'
-      case 'Istirahat di UKS': return 'warning'
-      case 'Dijemput Wali': return 'info'
-      case 'Dirujuk ke Klinik': return 'danger'
-      default: return 'neutral'
-    }
-  }
-
   return (
     <div className="space-y-6">
+
+      {/* Sapaan — getGreeting() sudah lama ada di formatters tapi belum dipakai */}
+      <div>
+        <h2 className="text-lg font-bold text-slate-900">
+          {getGreeting()}, {user?.nama_lengkap || 'Petugas UKS'}
+        </h2>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Ringkasan kunjungan UKS · {periodLabel}
+        </p>
+      </div>
 
       {/* Filter Periode & Aksi Cepat */}
       <div className="flex flex-wrap items-center justify-between gap-3">
