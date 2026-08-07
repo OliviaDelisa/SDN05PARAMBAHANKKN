@@ -18,6 +18,14 @@ dotenv.config()
 
 const app = express()
 
+// Hostinger (dan kebanyakan hosting lain) menempatkan aplikasi di belakang
+// reverse proxy, yang menyisipkan header X-Forwarded-For berisi IP asli
+// pengguna. Tanpa 'trust proxy', Express mengabaikan header itu, sehingga
+// express-rate-limit (dipakai di authRoutes untuk membatasi percobaan
+// login) salah mengenali semua pengguna sebagai satu IP yang sama (IP
+// proxy-nya) dan bisa memblokir semua orang sekaligus.
+app.set('trust proxy', 1)
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = path.join(__dirname, 'frontend', 'dist')
 const ADA_BUILD = fs.existsSync(path.join(DIST_DIR, 'index.html'))
