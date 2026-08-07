@@ -19,15 +19,21 @@ import { useData } from '../context/DataContext'
 /**
  * Halaman data siswa, dipakai dalam dua mode:
  *
- *   mode="petugas" (bawaan) — lihat, cari, tambah
- *   mode="admin"            — plus ubah & hapus
+ *   mode="petugas" (bawaan) — HANYA LIHAT & CARI, tidak ada tambah/ubah/hapus
+ *   mode="admin"            — plus tambah, ubah & hapus
  *
  * Satu komponen, bukan dua berkas: tabel, pencarian, dan filter kelasnya
  * identik. Kalau dipisah, setiap perubahan kolom harus dikerjakan dua kali
  * dan lambat laun keduanya akan menyimpang.
  *
  * Menyembunyikan tombol pada mode petugas hanyalah kerapian tampilan —
- * PUT/DELETE /api/siswa sudah ditolak 403 oleh requireRole('Admin').
+ * POST/PUT/DELETE /api/siswa sudah ditolak 403 oleh requireRole('Admin').
+ *
+ * CATATAN PERBAIKAN: modal "Tambah/Edit" (isModalOpen) dan modal "Hapus"
+ * (deletingSiswa) sekarang saling menutup satu sama lain setiap kali salah
+ * satu dibuka. Sebelumnya keduanya independen sehingga bisa sama-sama
+ * bernilai "terbuka" di saat yang sama, membuat dua modal tampil bertumpuk
+ * dan rebutan fokus/klik.
  */
 export default function DataSiswa({ mode = 'petugas' }) {
   const isAdmin = mode === 'admin'
@@ -89,6 +95,7 @@ export default function DataSiswa({ mode = 'petugas' }) {
 
   // Open modal for new student
   const handleOpenAdd = () => {
+    setDeletingSiswa(null) // pastikan modal Hapus tertutup
     setEditingSiswa(null)
     setFormData({
       nis: '',
@@ -104,6 +111,7 @@ export default function DataSiswa({ mode = 'petugas' }) {
 
   // Open modal for editing
   const handleOpenEdit = (siswa) => {
+    setDeletingSiswa(null) // pastikan modal Hapus tertutup
     setEditingSiswa(siswa)
     setFormData({
       nis: siswa.nis,
@@ -115,6 +123,12 @@ export default function DataSiswa({ mode = 'petugas' }) {
       telepon_wali: siswa.telepon_wali || ''
     })
     setIsModalOpen(true)
+  }
+
+  // Open confirm-delete modal
+  const handleOpenDelete = (siswa) => {
+    setIsModalOpen(false) // pastikan modal Tambah/Edit tertutup
+    setDeletingSiswa(siswa)
   }
 
   // Save (Add or Update)
@@ -240,7 +254,7 @@ export default function DataSiswa({ mode = 'petugas' }) {
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={() => setDeletingSiswa(row)}
+                  onClick={() => handleOpenDelete(row)}
                   className="p-1.5 rounded-lg bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 transition-colors"
                   title="Hapus"
                 >
@@ -255,19 +269,23 @@ export default function DataSiswa({ mode = 'petugas' }) {
 
   return (
     <div className="space-y-5">
+      {/* Tombol "Tambah Siswa" hanya untuk admin. Petugas cuma boleh lihat
+          data, tidak boleh menambah siswa baru. */}
       <PageHeader title="">
-        <button
-          onClick={handleOpenAdd}
-          className="
-            inline-flex items-center gap-2 px-4 py-2.5 rounded-lg
-            bg-emerald-600 hover:bg-emerald-700
-            text-white font-semibold text-sm
-            transition-colors cursor-pointer
-          "
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Tambah Siswa</span>
-        </button>
+        {isAdmin && (
+          <button
+            onClick={handleOpenAdd}
+            className="
+              inline-flex items-center gap-2 px-4 py-2.5 rounded-lg
+              bg-emerald-600 hover:bg-emerald-700
+              text-white font-semibold text-sm
+              transition-colors cursor-pointer
+            "
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Tambah Siswa</span>
+          </button>
+        )}
       </PageHeader>
 
       {/* Filter Bar */}
@@ -310,169 +328,178 @@ export default function DataSiswa({ mode = 'petugas' }) {
         emptyMessage="Tidak ada data siswa yang cocok."
       />
 
-      {/* Add / Edit Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={editingSiswa ? 'Edit Data Siswa' : 'Tambah Siswa Baru'}
-        size="md"
-      >
-        <form onSubmit={handleSave} className="space-y-4 text-sm">
-          <div className="grid grid-cols-2 gap-4">
+      {/* Add / Edit Modal — hanya bisa dibuka lewat handleOpenAdd/handleOpenEdit,
+          yang keduanya hanya dipanggil dari elemen yang sudah dibungkus isAdmin. */}
+      {isAdmin && (
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          title={editingSiswa ? 'Edit Data Siswa' : 'Tambah Siswa Baru'}
+          size="md"
+        >
+          <form onSubmit={handleSave} className="space-y-4 text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-500">
+                  NIS <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={formData.nis}
+                  onChange={(e) => {
+                    const onlyNumbers = e.target.value.replace(/\D/g, '')
+                    setFormData({ ...formData, nis: onlyNumbers })
+                  }}
+                  placeholder="Misal: 20241032"
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-500">
+                  Kelas <span className="text-red-500">*</span>
+                </label>
+                <CustomSelect
+                  options={kelasFormOptions}
+                  value={formData.kelas}
+                  onChange={(val) => setFormData({ ...formData, kelas: val })}
+                />
+              </div>
+            </div>
+
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-500">
-                NIS <span className="text-red-500">*</span>
+                Nama Lengkap <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                value={formData.nis}
-                onChange={(e) => setFormData({ ...formData, nis: e.target.value })}
-                placeholder="Misal: 20241032"
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+                value={formData.nama}
+                onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
+                placeholder="Nama lengkap siswa..."
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
                 required
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-500">
-                Kelas <span className="text-red-500">*</span>
-              </label>
-              <CustomSelect
-                options={kelasFormOptions}
-                value={formData.kelas}
-                onChange={(val) => setFormData({ ...formData, kelas: val })}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-500">
-              Nama Lengkap <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.nama}
-              onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
-              placeholder="Nama lengkap siswa..."
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-500">Jenis Kelamin</label>
-              <CustomSelect
-                options={jkOptions}
-                value={formData.jenis_kelamin}
-                onChange={(val) => setFormData({ ...formData, jenis_kelamin: val })}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-500">Tanggal Lahir</label>
-              <input
-                type="date"
-                value={formData.tanggal_lahir}
-                onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5 pt-3 border-t border-slate-100">
-            <label className="text-xs font-semibold text-slate-500">Nama Orang Tua / Wali</label>
-            <input
-              type="text"
-              value={formData.nama_wali}
-              onChange={(e) => setFormData({ ...formData, nama_wali: e.target.value })}
-              placeholder="Nama ibu/ayah/wali..."
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-500">No. Telepon Wali</label>
-            <input
-              type="text"
-              value={formData.telepon_wali}
-              onChange={(e) => {
-                const onlyNumbers = e.target.value.replace(/\D/g, '')
-                setFormData({ ...formData, telepon_wali: onlyNumbers })
-              }}
-              placeholder="0812..."
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
-            />
-          </div>
-
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium text-sm"
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <Save className="w-4 h-4" />
-              <span>{saving ? 'Menyimpan...' : 'Simpan'}</span>
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={!!deletingSiswa}
-        onClose={() => setDeletingSiswa(null)}
-        title="Hapus Data Siswa"
-        size="sm"
-      >
-        {deletingSiswa && (
-          <div className="space-y-5 text-sm">
-            <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg border border-red-200 text-red-700">
-              <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-              <p className="text-sm leading-relaxed">
-                Hapus data siswa <strong>{deletingSiswa.nama}</strong> ({deletingSiswa.nis})? Tindakan ini tidak dapat dibatalkan.
-              </p>
-            </div>
-
-            {/* Rekam kunjungan tidak ikut terhapus (FK ON DELETE SET NULL),
-                tapi admin perlu tahu ada riwayat yang akan kehilangan
-                tautannya ke data induk siswa. */}
-            {jumlahRiwayat > 0 && (
-              <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-lg border border-amber-200 text-amber-800">
-                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-xs leading-relaxed">
-                  Siswa ini punya <strong>{jumlahRiwayat} rekam kunjungan</strong>. Riwayatnya
-                  tetap tersimpan dan masih bisa dicetak, tetapi tidak lagi tertaut ke data
-                  induk siswa.
-                </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-500">Jenis Kelamin</label>
+                <CustomSelect
+                  options={jkOptions}
+                  value={formData.jenis_kelamin}
+                  onChange={(val) => setFormData({ ...formData, jenis_kelamin: val })}
+                />
               </div>
-            )}
 
-            <div className="flex justify-end gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-500">Tanggal Lahir</label>
+                <input
+                  type="date"
+                  value={formData.tanggal_lahir}
+                  onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-3 border-t border-slate-100">
+              <label className="text-xs font-semibold text-slate-500">Nama Orang Tua / Wali</label>
+              <input
+                type="text"
+                value={formData.nama_wali}
+                onChange={(e) => setFormData({ ...formData, nama_wali: e.target.value })}
+                placeholder="Nama ibu/ayah/wali..."
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-500">No. Telepon Wali</label>
+              <input
+                type="text"
+                value={formData.telepon_wali}
+                onChange={(e) => {
+                  const onlyNumbers = e.target.value.replace(/\D/g, '')
+                  setFormData({ ...formData, telepon_wali: onlyNumbers })
+                }}
+                placeholder="0812..."
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+              />
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
               <button
-                onClick={() => setDeletingSiswa(null)}
-                className="px-4 py-2.5 rounded-lg bg-slate-100 text-slate-600 font-medium text-sm"
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium text-sm"
               >
                 Batal
               </button>
               <button
-                onClick={handleDeleteConfirm}
-                disabled={deleting}
-                className="px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                type="submit"
+                disabled={saving}
+                className="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {deleting ? 'Menghapus...' : 'Hapus'}
+                <Save className="w-4 h-4" />
+                <span>{saving ? 'Menyimpan...' : 'Simpan'}</span>
               </button>
             </div>
-          </div>
-        )}
-      </Modal>
+          </form>
+        </Modal>
+      )}
+
+      {/* Delete Confirmation Modal — sama, hanya relevan untuk admin. */}
+      {isAdmin && (
+        <Modal
+          isOpen={!!deletingSiswa}
+          onClose={() => setDeletingSiswa(null)}
+          title="Hapus Data Siswa"
+          size="sm"
+        >
+          {deletingSiswa && (
+            <div className="space-y-5 text-sm">
+              <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg border border-red-200 text-red-700">
+                <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+                <p className="text-sm leading-relaxed">
+                  Hapus data siswa <strong>{deletingSiswa.nama}</strong> ({deletingSiswa.nis})? Tindakan ini tidak dapat dibatalkan.
+                </p>
+              </div>
+
+              {/* Rekam kunjungan tidak ikut terhapus (FK ON DELETE SET NULL),
+                  tapi admin perlu tahu ada riwayat yang akan kehilangan
+                  tautannya ke data induk siswa. */}
+              {jumlahRiwayat > 0 && (
+                <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-lg border border-amber-200 text-amber-800">
+                  <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-xs leading-relaxed">
+                    Siswa ini punya <strong>{jumlahRiwayat} rekam kunjungan</strong>. Riwayatnya
+                    tetap tersimpan dan masih bisa dicetak, tetapi tidak lagi tertaut ke data
+                    induk siswa.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setDeletingSiswa(null)}
+                  className="px-4 py-2.5 rounded-lg bg-slate-100 text-slate-600 font-medium text-sm"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={deleting}
+                  className="px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {deleting ? 'Menghapus...' : 'Hapus'}
+                </button>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
     </div>
   )
 }

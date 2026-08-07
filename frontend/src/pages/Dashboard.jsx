@@ -41,6 +41,8 @@ const PERIOD_OPTIONS = [
   { value: 'semua', label: 'Semua' }
 ]
 
+const BULAN_SINGKAT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+
 // Menghitung batas awal tanggal berdasarkan periode yang dipilih
 function getPeriodStart(period) {
   const now = new Date()
@@ -135,27 +137,88 @@ export default function Dashboard() {
     total: item.total
   }))
 
-
-  // Tren kunjungan 7 hari terakhir (tetap, tidak mengikuti filter periode).
+  // Tren kunjungan yang menyesuaikan periode terpilih:
+  // - harian/mingguan -> 7 hari terakhir
+  // - bulanan         -> per hari dalam bulan berjalan
+  // - tahunan         -> per bulan dalam tahun berjalan
+  // - semua           -> per bulan dari seluruh data
   // Perbandingan tanggal memakai waktu LOKAL — toISOString() menghasilkan UTC,
   // sehingga di WIB (UTC+7) kunjungan sebelum pukul 07.00 akan terhitung
   // masuk ke hari sebelumnya.
-  const weeklyTrend = Array.from({ length: 7 }).map((_, i) => {
-    const date = new Date()
-    date.setDate(date.getDate() - (6 - i))
-    const dateStr = tanggalLokal(date)
-    const label = date.toLocaleDateString('id-ID', { weekday: 'short' })
-    const total = kunjunganList.filter((k) => {
-      if (!k.waktu_masuk) return false
-      return tanggalLokal(k.waktu_masuk) === dateStr
-    }).length
-    return { name: label, total }
-  })
+  const trendData = useMemo(() => {
+    const now = new Date()
+
+    if (period === 'harian' || period === 'mingguan') {
+      return Array.from({ length: 7 }).map((_, i) => {
+        const date = new Date()
+        date.setDate(date.getDate() - (6 - i))
+        const dateStr = tanggalLokal(date)
+        const label = date.toLocaleDateString('id-ID', { weekday: 'short' })
+        const total = kunjunganList.filter((k) => {
+          if (!k.waktu_masuk) return false
+          return tanggalLokal(k.waktu_masuk) === dateStr
+        }).length
+        return { name: label, total }
+      })
+    }
+
+    if (period === 'bulanan') {
+      const year = now.getFullYear()
+      const month = now.getMonth()
+      const daysInMonth = new Date(year, month + 1, 0).getDate()
+      return Array.from({ length: daysInMonth }).map((_, i) => {
+        const day = i + 1
+        const dateStr = tanggalLokal(new Date(year, month, day))
+        const total = kunjunganList.filter((k) => {
+          if (!k.waktu_masuk) return false
+          return tanggalLokal(k.waktu_masuk) === dateStr
+        }).length
+        return { name: String(day), total }
+      })
+    }
+
+    if (period === 'tahunan') {
+      const year = now.getFullYear()
+      return BULAN_SINGKAT.map((label, i) => {
+        const total = kunjunganList.filter((k) => {
+          if (!k.waktu_masuk) return false
+          const d = new Date(k.waktu_masuk)
+          return d.getFullYear() === year && d.getMonth() === i
+        }).length
+        return { name: label, total }
+      })
+    }
+
+    // 'semua' -> rekap per bulan dari seluruh data yang tersedia
+    const map = {}
+    kunjunganList.forEach((k) => {
+      if (!k.waktu_masuk) return
+      const d = new Date(k.waktu_masuk)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      map[key] = (map[key] || 0) + 1
+    })
+
+    return Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, total]) => {
+        const [y, m] = key.split('-')
+        return { name: `${BULAN_SINGKAT[Number(m) - 1]} '${y.slice(2)}`, total }
+      })
+  }, [kunjunganList, period])
+
+  // Judul & subjudul chart tren menyesuaikan periode
+  const trendMeta = {
+    harian: { title: 'Tren Kunjungan 7 Hari Terakhir', subtitle: 'Jumlah siswa yang berkunjung ke UKS per hari' },
+    mingguan: { title: 'Tren Kunjungan 7 Hari Terakhir', subtitle: 'Jumlah siswa yang berkunjung ke UKS per hari' },
+    bulanan: { title: 'Tren Kunjungan Bulan Ini', subtitle: 'Jumlah siswa yang berkunjung ke UKS per tanggal' },
+    tahunan: { title: 'Tren Kunjungan Tahun Ini', subtitle: 'Jumlah siswa yang berkunjung ke UKS per bulan' },
+    semua: { title: 'Tren Kunjungan Keseluruhan', subtitle: 'Jumlah siswa yang berkunjung ke UKS per bulan' }
+  }[period]
 
   return (
     <div className="space-y-6">
 
-      {/* Sapaan — getGreeting() sudah lama ada di formatters tapi belum dipakai */}
+      {/* Sapaan */}
       <div>
         <h2 className="text-lg font-bold text-slate-900">
           {getGreeting()}, {user?.nama_lengkap || 'Dokter Kecil'}
@@ -378,46 +441,61 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Tren Mingguan & Aktivitas Terkini */}
+      {/* Tren Kunjungan & Aktivitas Terkini */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
         <div className="lg:col-span-7 rounded-2xl bg-white border border-slate-200 p-6">
           <div className="mb-4">
             <h3 className="text-sm font-bold text-slate-900">
-              Tren Kunjungan 7 Hari Terakhir
+              {trendMeta.title}
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Jumlah siswa yang berkunjung ke UKS per hari
+              {trendMeta.subtitle}
             </p>
           </div>
 
           <div className="h-[260px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={weeklyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="#F1F5F9" />
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  cursor={{ stroke: '#10B981', strokeWidth: 1, strokeDasharray: '4 4' }}
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #E2E8F0',
-                    borderRadius: '10px',
-                    color: '#1E293B',
-                    fontSize: '12px'
-                  }}
-                  formatter={(val) => [`${val} siswa`, 'Kunjungan']}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="total"
-                  stroke="#10B981"
-                  strokeWidth={2.5}
-                  dot={{ fill: '#10B981', r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {trendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid vertical={false} stroke="#F1F5F9" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11, fill: '#64748B' }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval={period === 'bulanan' ? 2 : 0}
+                  />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ stroke: '#10B981', strokeWidth: 1, strokeDasharray: '4 4' }}
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '10px',
+                      color: '#1E293B',
+                      fontSize: '12px'
+                    }}
+                    formatter={(val) => [`${val} siswa`, 'Kunjungan']}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    stroke="#10B981"
+                    strokeWidth={2.5}
+                    dot={{ fill: '#10B981', r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-center text-slate-400 space-y-2">
+                <div>
+                  <Inbox className="w-8 h-8 mx-auto opacity-40" />
+                  <p className="text-xs mt-2">Belum ada data tren untuk ditampilkan</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

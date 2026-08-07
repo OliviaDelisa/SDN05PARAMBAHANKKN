@@ -57,13 +57,17 @@ function ToastContainer({ toasts, onRemove }) {
   )
 }
 
+// PENTING: hanya pakai warna bawaan Tailwind di sini (emerald, red, sky, dst).
+// Warna custom seperti "coral" tidak akan ter-generate kalau belum
+// didaftarkan di tailwind.config.js — akibatnya class bg-nya tidak
+// menghasilkan CSS apa pun dan toast jadi transparan/tak terlihat.
 const VARIANT_STYLES = {
   success: {
     bg: 'bg-emerald-600',
     icon: '✓'
   },
   error: {
-    bg: 'bg-coral-500',
+    bg: 'bg-red-600',
     icon: '✕'
   },
   info: {

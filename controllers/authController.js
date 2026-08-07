@@ -22,7 +22,7 @@ export async function loginUser(req, res) {
     if (!rows || rows.length === 0) {
       return res.status(401).json({
         success: false,
-        message: 'Username/NIP atau Password yang Anda masukkan salah!'
+        message: 'Username atau Password yang Anda masukkan salah!'
       })
     }
 
@@ -35,7 +35,7 @@ export async function loginUser(req, res) {
     if (!cocok) {
       return res.status(401).json({
         success: false,
-        message: 'Username/NIP atau Password yang Anda masukkan salah!'
+        message: 'Username atau Password yang Anda masukkan salah!'
       })
     }
 

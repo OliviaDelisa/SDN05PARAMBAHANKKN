@@ -5,6 +5,18 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
   const overlayRef = useRef(null)
   const contentRef = useRef(null)
 
+  // Simpan versi terbaru dari onClose di dalam ref. Kalau parent (mis.
+  // DataSiswa) re-render setiap kali user mengetik di form, prop onClose
+  // yang berupa arrow function inline akan selalu jadi reference BARU.
+  // Kalau onClose langsung dipakai sebagai dependency useEffect di bawah,
+  // effect itu akan cleanup + jalan ulang setiap keystroke — dan itu yang
+  // menyebabkan fokus keyboard "dicuri balik" ke elemen pertama (tombol X)
+  // setiap kali user mengetik satu huruf.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   const sizeClasses = {
     sm: 'max-w-md',
     md: 'max-w-lg',
@@ -30,7 +42,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        onClose()
+        onCloseRef.current()
         return
       }
 
@@ -59,7 +71,10 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
     document.addEventListener('keydown', handleKeyDown)
     document.body.style.overflow = 'hidden'
 
-    // Pindahkan fokus ke dalam modal setelah animasi buka dimulai
+    // Pindahkan fokus ke dalam modal setelah animasi buka dimulai.
+    // Effect ini sekarang HANYA jalan saat isOpen berubah (lihat dependency
+    // array di bawah), bukan setiap kali parent re-render, jadi fokus tidak
+    // akan direbut ulang lagi selagi user sedang mengetik.
     const timer = setTimeout(() => {
       const daftar = elemenFokusable()
       if (daftar.length > 0) daftar[0].focus()
@@ -72,7 +87,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
       document.body.style.overflow = ''
       if (sebelumnya instanceof HTMLElement) sebelumnya.focus()
     }
-  }, [isOpen, onClose])
+  }, [isOpen]) // ⚠️ onClose SENGAJA tidak dimasukkan ke sini, lihat catatan di atas
 
   if (!isOpen) return null
 

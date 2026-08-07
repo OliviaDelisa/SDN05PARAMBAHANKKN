@@ -63,7 +63,7 @@ export function AuthProvider({ children }) {
       simpanSesi(res.data, res.token)
       return res.data
     } else {
-      throw new Error(res.message || 'Username/NIP atau Password yang Anda masukkan salah!')
+      throw new Error(res.message || 'Username atau Password yang Anda masukkan salah!')
     }
   }
 
