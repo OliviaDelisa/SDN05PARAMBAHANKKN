@@ -60,7 +60,35 @@ export default function PrintReportTemplate({
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        logging: false
+        logging: false,
+        // FIX: di production build, semua CSS Tailwind digabung jadi satu file
+        // minified yang memakai fungsi warna oklch(). html2canvas-pro kadang
+        // gagal parse sebagian sintaks oklch itu di file gabungan tsb dan
+        // diam-diam menganggap seluruh style kosong (tanpa melempar error) —
+        // makanya border/background/warna hilang total meski PDF "berhasil"
+        // dibuat. onclone dijalankan pada dokumen HASIL KLON sebelum discreenshot,
+        // jadi di sini kita ambil computed style dari elemen ASLI (yang sudah
+        // diresolve browser jadi rgb(), bukan oklch() mentah lagi) lalu paksa
+        // jadi inline style pada elemen klonnya. html2canvas jadi tidak perlu
+        // parse oklch() sama sekali saat screenshot.
+        onclone: (clonedDoc) => {
+          const originalNodes = element.querySelectorAll('*')
+          const clonedRoot = clonedDoc.querySelector('.print-document')
+          if (!clonedRoot) return
+          const clonedNodes = clonedRoot.querySelectorAll('*')
+
+          originalNodes.forEach((origNode, i) => {
+            const cloneNode = clonedNodes[i]
+            if (!cloneNode) return
+            const cs = window.getComputedStyle(origNode)
+            cloneNode.style.color = cs.color
+            cloneNode.style.backgroundColor = cs.backgroundColor
+            cloneNode.style.borderTopColor = cs.borderTopColor
+            cloneNode.style.borderRightColor = cs.borderRightColor
+            cloneNode.style.borderBottomColor = cs.borderBottomColor
+            cloneNode.style.borderLeftColor = cs.borderLeftColor
+          })
+        }
       })
 
       const imgData = canvas.toDataURL('image/jpeg', 0.98)
