@@ -46,6 +46,24 @@ export default function PrintReportTemplate({
   const totalWali = dataKunjungan.filter((k) => k.status === 'Dijemput Wali').length
   const totalRujuk = dataKunjungan.filter((k) => k.status === 'Dirujuk ke Klinik').length
 
+  // Normalisasi string warna apapun (termasuk oklch() dari Tailwind v4) menjadi
+  // rgb()/rgba() yang pasti dikenali html2canvas. getComputedStyle() di browser
+  // modern kadang TETAP mengembalikan oklch(...) mentah alih-alih rgb — jadi
+  // memaksa computed style saja belum cukup. Trik Canvas 2D di bawah ini
+  // memanfaatkan fakta bahwa `ctx.fillStyle` SELALU diserialisasi ulang oleh
+  // browser ke format warna standar (biasanya rgb/rgba), apapun format
+  // input aslinya (oklch, hsl, named color, dll).
+  const normalizeColor = (() => {
+    let ctx
+    return (colorStr) => {
+      if (!colorStr) return colorStr
+      if (!ctx) ctx = document.createElement('canvas').getContext('2d')
+      ctx.fillStyle = '#000000' // reset agar input invalid tidak mewarisi nilai lama
+      ctx.fillStyle = colorStr
+      return ctx.fillStyle
+    }
+  })()
+
   // Trigger Direct PDF Download via jspdf + html2canvas-pro (mendukung warna oklch Tailwind terbaru)
   const handleDownloadPDF = async () => {
     if (isGenerating) return
@@ -81,12 +99,12 @@ export default function PrintReportTemplate({
             const cloneNode = clonedNodes[i]
             if (!cloneNode) return
             const cs = window.getComputedStyle(origNode)
-            cloneNode.style.color = cs.color
-            cloneNode.style.backgroundColor = cs.backgroundColor
-            cloneNode.style.borderTopColor = cs.borderTopColor
-            cloneNode.style.borderRightColor = cs.borderRightColor
-            cloneNode.style.borderBottomColor = cs.borderBottomColor
-            cloneNode.style.borderLeftColor = cs.borderLeftColor
+            cloneNode.style.color = normalizeColor(cs.color)
+            cloneNode.style.backgroundColor = normalizeColor(cs.backgroundColor)
+            cloneNode.style.borderTopColor = normalizeColor(cs.borderTopColor)
+            cloneNode.style.borderRightColor = normalizeColor(cs.borderRightColor)
+            cloneNode.style.borderBottomColor = normalizeColor(cs.borderBottomColor)
+            cloneNode.style.borderLeftColor = normalizeColor(cs.borderLeftColor)
           })
         }
       })
